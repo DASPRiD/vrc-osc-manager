@@ -1,0 +1,19 @@
+[package]
+name = "osc-watch-linux"
+description = "OSC Linux client for the OSC Watch VRChat accessory"
+version = "0.1.0"
+edition = "2021"
+authors = ["Ben Scholzen (DASPRiD) <mail@dasprids.de>"]
+readme = "README.md"
+license-file = "LICENSE"
+
+[dependencies]
+anyhow = "1.0.70"
+async-osc = "0.2.0"
+chrono = "0.4.24"
+env_logger = "0.10.0"
+image = "0.24.6"
+ksni = "0.2.0"
+log = "0.4.17"
+sysinfo = "0.28.4"
+tokio = { version = "1.27.0", features = ["full"] }
