@@ -1,15 +1,20 @@
-use anyhow::Result;
-use async_osc::OscSocket;
-use chrono::{Local, Timelike};
+mod config;
+mod osc;
+mod plugins;
+
+use crate::config::{load_config, Config};
+use anyhow::{Context, Result};
 use image::Rgba;
 use ksni::{Icon, MenuItem};
 use log::{debug, info};
+use std::sync::Arc;
 use std::time::Duration;
 use sysinfo::{ProcessRefreshKind, RefreshKind, System, SystemExt};
-use tokio::sync::broadcast;
-use tokio::sync::broadcast::{Receiver, Sender};
+use tokio::sync::{broadcast, mpsc};
 use tokio::time::sleep;
-use tokio::{select, spawn};
+use tokio_graceful_shutdown::{
+    errors::CancelledByShutdown, FutureExt, NestedSubsystem, SubsystemHandle, Toplevel,
+};
 
 fn convert(img: &[u8]) -> Result<Vec<u8>> {
     let img = image::load_from_memory(img)?;
@@ -31,7 +36,7 @@ struct ApplicationTray {
 
 impl ksni::Tray for ApplicationTray {
     fn id(&self) -> String {
-        "osx-watch".to_string()
+        "osx-manager".to_string()
     }
 
     fn icon_pixmap(&self) -> Vec<Icon> {
@@ -59,66 +64,123 @@ impl ksni::Tray for ApplicationTray {
     }
 }
 
-async fn vrchat_check_loop(tx: Sender<bool>) -> Result<()> {
-    let mut vrchat_running = false;
-    let mut sys = System::new();
-    let refresh_kind = RefreshKind::new().with_processes(ProcessRefreshKind::new());
+struct VrChatActivity {
+    tx: mpsc::Sender<bool>,
+}
 
-    loop {
-        debug!("Checking if VRChat is running");
-        sys.refresh_specifics(refresh_kind);
+impl VrChatActivity {
+    fn new(tx: mpsc::Sender<bool>) -> Self {
+        Self { tx }
+    }
 
-        {
-            let mut processes = sys.processes_by_name("VRChat");
-            let running = processes.next().is_some();
+    async fn check(&self) -> Result<()> {
+        let mut vrchat_running = false;
+        let mut sys = System::new();
+        let refresh_kind = RefreshKind::new().with_processes(ProcessRefreshKind::new());
+
+        loop {
+            debug!("Checking if VRChat is running");
+            sys.refresh_specifics(refresh_kind);
+            let running = sys.processes_by_name("VRChat").next().is_some();
 
             if running != vrchat_running {
                 vrchat_running = running;
-                tx.send(vrchat_running)?;
+                self.tx.send(vrchat_running).await?;
 
                 info!(
-                    "VRChat {}",
-                    if vrchat_running {
-                        "is running"
-                    } else {
-                        "has stopped"
-                    }
+                    "VRChat has {}",
+                    if vrchat_running { "started" } else { "stopped" }
                 );
             }
+
+            sleep(Duration::from_secs(20)).await;
+        }
+    }
+
+    async fn run(self, subsys: SubsystemHandle) -> Result<()> {
+        match (self.check().cancel_on_shutdown(&subsys)).await {
+            Ok(Ok(())) => subsys.request_shutdown(),
+            Ok(Err(error)) => return Err(error),
+            Err(CancelledByShutdown) => {}
         }
 
-        sleep(Duration::from_secs(20)).await;
+        Ok(())
     }
 }
 
-async fn time_sender_loop(mut rx: Receiver<bool>) -> Result<()> {
-    let socket = OscSocket::bind("127.0.0.1:0").await?;
-    socket.connect("127.0.0.1:9000").await?;
+async fn run_plugins(subsys: SubsystemHandle, config: Arc<Config>) -> Result<()> {
+    let (sender_tx, sender_rx) = mpsc::channel(64);
+    let (receiver_tx, receiver_rx) = broadcast::channel(64);
+    let plugin_watch_sender = sender_tx.clone();
 
-    loop {
-        let now = Local::now();
-        let hour = ((now.hour() % 12) as f32 + now.minute() as f32 / 60.) / 6. - 1.;
-        let minute = (now.minute() as f32 + now.second() as f32 / 60.) / 30. - 1.;
+    let send_port = config.osc.send_port;
+    let receive_port = config.osc.receive_port;
 
-        let _ = socket
-            .send(("/avatar/parameters/RMBA_WatchHours", (hour,)))
-            .await;
-        let _ = socket
-            .send(("/avatar/parameters/RMBA_WatchMinutes", (minute,)))
-            .await;
-        debug!("Sent new time");
+    subsys.start("PluginWatch", |subsys| {
+        plugins::watch::Watch::new(plugin_watch_sender).run(subsys)
+    });
+    subsys.start("PluginPiShock", |subsys| {
+        plugins::pishock::PiShock::new(sender_tx, receiver_rx, config).run(subsys)
+    });
+    subsys.start("OscSender", move |subsys| {
+        osc::Sender::new(sender_rx, send_port).run(subsys)
+    });
+    subsys.start("OscReceiver", move |subsys| {
+        osc::Receiver::new(receiver_tx, receive_port).run(subsys)
+    });
 
-        select! {
-            vrchat_running = rx.recv() => {
-                if !vrchat_running? {
-                    debug!("Stopping time sender");
-                    return Ok(());
-                }
-            },
-            _ = sleep(Duration::from_secs(10)) => {
-                continue;
-            },
+    subsys.on_shutdown_requested().await;
+    Ok(())
+}
+
+struct Launcher {
+    rx: mpsc::Receiver<bool>,
+    config: Arc<Config>,
+}
+
+impl Launcher {
+    fn new(rx: mpsc::Receiver<bool>, config: Arc<Config>) -> Self {
+        Self { rx, config }
+    }
+
+    async fn wait(&mut self, subsys: &SubsystemHandle) -> Result<()> {
+        let service = ksni::TrayService::new(ApplicationTray { running: false });
+        let handle = service.handle();
+        service.spawn();
+
+        let mut plugin_subsys: Option<NestedSubsystem> = None;
+
+        while let Some(vrchat_running) = self.rx.recv().await {
+            if vrchat_running && plugin_subsys.is_none() {
+                handle.update(|tray: &mut ApplicationTray| {
+                    tray.running = true;
+                });
+
+                let config = self.config.clone();
+                plugin_subsys = Some(subsys.start("Plugins", |subsys| run_plugins(subsys, config)));
+            } else if !vrchat_running && plugin_subsys.is_some() {
+                handle.update(|tray: &mut ApplicationTray| {
+                    tray.running = false;
+                });
+
+                subsys
+                    .perform_partial_shutdown(plugin_subsys.context("Plugin subsys not some")?)
+                    .await?;
+                plugin_subsys = None;
+            }
         }
+
+        Ok(())
+    }
+
+    async fn run(mut self, subsys: SubsystemHandle) -> Result<()> {
+        match (self.wait(&subsys).cancel_on_shutdown(&subsys)).await {
+            Ok(Ok(())) => subsys.request_shutdown(),
+            Ok(Err(error)) => return Err(error),
+            Err(CancelledByShutdown) => {}
+        }
+
+        Ok(())
     }
 }
 
@@ -126,35 +188,16 @@ async fn time_sender_loop(mut rx: Receiver<bool>) -> Result<()> {
 async fn main() -> Result<()> {
     env_logger::init();
 
-    let service = ksni::TrayService::new(ApplicationTray { running: false });
-    let handle = service.handle();
-    service.spawn();
+    let config = Arc::new(load_config().await?);
+    let (tx, rx) = mpsc::channel(2);
 
-    let (tx, mut rx) = broadcast::channel(2);
-    let check_tx = tx.clone();
-
-    spawn(async move {
-        vrchat_check_loop(check_tx).await.unwrap();
-    });
-
-    loop {
-        let vrchat_running = rx.recv().await?;
-
-        if vrchat_running {
-            debug!("Starting time sender");
-            let rx = tx.subscribe();
-
-            handle.update(|tray: &mut ApplicationTray| {
-                tray.running = true;
-            });
-
-            spawn(async move {
-                time_sender_loop(rx).await.unwrap();
-            });
-        } else {
-            handle.update(|tray: &mut ApplicationTray| {
-                tray.running = false;
-            });
-        }
-    }
+    Toplevel::new()
+        .start("VrChatActivity", |subsys| {
+            VrChatActivity::new(tx).run(subsys)
+        })
+        .start("Launcher", |subsys| Launcher::new(rx, config).run(subsys))
+        .catch_signals()
+        .handle_shutdown_requests(Duration::from_millis(1000))
+        .await
+        .map_err(Into::into)
 }

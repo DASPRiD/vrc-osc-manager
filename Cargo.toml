@@ -1,6 +1,6 @@
 [package]
-name = "osc-watch-linux"
-description = "OSC Linux client for the OSC Watch VRChat accessory"
+name = "vrc-osc-manager"
+description = "OSC client for managing VRChat accessories"
 version = "0.1.0"
 edition = "2021"
 authors = ["Ben Scholzen (DASPRiD) <mail@dasprids.de>"]
@@ -11,9 +11,16 @@ license-file = "LICENSE"
 anyhow = "1.0.70"
 async-osc = "0.2.0"
 chrono = "0.4.24"
+directories = "5.0.1"
 env_logger = "0.10.0"
 image = "0.24.6"
 ksni = "0.2.0"
 log = "0.4.17"
-sysinfo = "0.28.4"
+reqwest = { version = "0.11.17", features = ["default", "json"] }
+serde = { version = "1.0.163", features = ["derive"] }
+sysinfo = "0.29.0"
 tokio = { version = "1.27.0", features = ["full"] }
+tokio-graceful-shutdown = "0.12.1"
+tokio-stream = "0.1.14"
+tokio-util = "0.7.8"
+toml = "0.7.3"

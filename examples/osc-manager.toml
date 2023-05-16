@@ -1,0 +1,9 @@
+[osc]
+send_port = 9000
+receive_port = 9001
+
+[pishock]
+username = ""
+api_key = ""
+code = ""
+duration = 4

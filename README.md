@@ -1,9 +1,50 @@
-# OSC Watch Linux
+# VRChat OSC Manager
 
-This application a client implementation of the OSC sender component for the
-[OSC Watch VRChat accessory](https://booth.pm/en/items/3687002) aimed towards Linux users. It implements the same
-functionality as the original application minus the functionality of toggling the Discord microphone.
+This is an OSC manager for handling multiple VRChat OSC plugins at once. 
 
-Once started, the application will run completely in the background, showing a tray icon indicating that it's running.
-Once VRChat is detected to be started, the icon will turn green and the application will start sending time updates
-every 10 seconds.
+## Configuration
+
+Before you run the program, you must create a configuration file named `osc-manager.toml` in your config directory. On
+Linux, that'd be `~/.config`, on Windows, that'd be `C:\Users\username\AppData\Roaming`.
+
+You can find the skeleton for that config file in the `examples` folder.
+
+## Usage
+
+Simply place the binary in your user autostart. It will check the process list every 20 seconds and automatically boot
+up all plugins once it detects VRChat to be running. After VRChat has stopped, all plugins will be stopped again as
+well.
+
+This is indicated in your tray bar through the `OSC` icon. When it's inactive, it will be gray, otherwise green.
+
+## OS support
+
+At the moment only Linux is actively supported. This primarily comes down to the tray library being used. I might
+look into supporting Windows as well if people are interested in it.
+
+## Plugins
+
+### Watch
+
+This plugin drives the [OSC Watch VRChat accessory](https://booth.pm/en/items/3687002) component.  It implements the
+same functionality as the original application minus the functionality of toggling the Discord microphone.
+
+### PiShock
+
+This plugin controls a user configurable [PiShock](https://pishock.com) instance. It is driven through the following
+VRChat parameters:
+
+| Parameter                                  | Type    | Description                       |
+|--------------------------------------------|---------|-----------------------------------|
+| `/avatar/parameters/PS_Minus_Pressed`      | `bool`  | Intensity decrease button pressed |
+| `/avatar/parameters/PS_Plus_Pressed`       | `bool`  | Intensity increase button pressed |
+| `/avatar/parameters/PS_ShockLeft_Pressed`  | `bool`  | Left shock button pressed         |
+| `/avatar/parameters/PS_ShockRight_Pressed` | `bool`  | Right shock button pressed        |
+| `/avatar/parameters/PS_Strength`           | `float` | Intensity going from 0.0 to 1.0   |
+
+At the moment, the UI for this is not open source, so you will have to implement your own UI on your avatar. The pressed
+parameters are only read by the plugin, while the strength (intensity) parameter is both read and written, so you can
+also control it via a radial menu.
+
+In order to initiate the shock, both shock buttons have to be pressed at the same time.
+
