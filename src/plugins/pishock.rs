@@ -1,7 +1,7 @@
 use crate::config::Config;
 use anyhow::Result;
 use async_osc::{prelude::OscMessageExt, OscMessage, OscType};
-use log::info;
+use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
@@ -159,11 +159,31 @@ async fn handle_shock(
                         };
 
                         let client = reqwest::Client::new();
-                        let _ = client
+                        let response = client
                             .post("https://do.pishock.com/api/apioperate")
                             .json(&body)
                             .send()
                             .await;
+
+                        match response {
+                            Ok(response) => {
+                                let status = response.text().await;
+
+                                match status {
+                                    Ok(status) => match status.as_str() {
+                                        "Not Authorized." => warn!("Invalid credentials"),
+                                        "Operation Succeeded." => debug!("Shock succeeded"),
+                                        _ => warn!("Unknown response"),
+                                    },
+                                    Err(_) => {
+                                        warn!("Failed to parse response");
+                                    }
+                                }
+                            }
+                            Err(_) => {
+                                warn!("Failed to contact pishock API");
+                            }
+                        }
 
                         select! {
                             _ = token.cancelled() => return,
