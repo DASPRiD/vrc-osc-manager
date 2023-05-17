@@ -62,6 +62,8 @@ impl VrChatActivity {
 async fn run_plugins(subsys: SubsystemHandle, config: Arc<Config>) -> Result<()> {
     let (sender_tx, sender_rx) = mpsc::channel(64);
     let (receiver_tx, receiver_rx) = broadcast::channel(64);
+
+    #[cfg(feature = "watch")]
     let plugin_watch_sender = sender_tx.clone();
 
     let send_port = config.osc.send_port;
