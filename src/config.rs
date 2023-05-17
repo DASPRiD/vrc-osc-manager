@@ -10,6 +10,7 @@ pub struct OscConfig {
     pub receive_port: u16,
 }
 
+#[cfg(feature = "pishock")]
 #[derive(Debug, Clone, Deserialize)]
 pub struct PiShockConfig {
     pub username: String,
@@ -21,6 +22,7 @@ pub struct PiShockConfig {
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub osc: OscConfig,
+    #[cfg(feature = "pishock")]
     pub pishock: PiShockConfig,
 }
 

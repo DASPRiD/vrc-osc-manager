@@ -67,9 +67,11 @@ async fn run_plugins(subsys: SubsystemHandle, config: Arc<Config>) -> Result<()>
     let send_port = config.osc.send_port;
     let receive_port = config.osc.receive_port;
 
+    #[cfg(feature = "watch")]
     subsys.start("PluginWatch", |subsys| {
         plugins::watch::Watch::new(plugin_watch_sender).run(subsys)
     });
+    #[cfg(feature = "pishock")]
     subsys.start("PluginPiShock", |subsys| {
         plugins::pishock::PiShock::new(sender_tx, receiver_rx, config).run(subsys)
     });
