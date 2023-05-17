@@ -1,5 +1,7 @@
 # VRChat OSC Manager
 
+[![ci](https://github.com/DASPRiD/vrc-osc-manager/actions/workflows/test.yml/badge.svg)](https://github.com/DASPRiD/vrc-osc-manager/actions/workflows/test.yml)
+
 This is an OSC manager for handling multiple VRChat OSC plugins at once. 
 
 ## Configuration
