@@ -255,6 +255,15 @@ impl PiShock {
                 ("/avatar/parameters/PS_Strength", &[OscType::Float(value)]) => {
                     *strength.lock().await = value;
                 }
+                ("/avatar/change", &[OscType::String(_)]) => {
+                    let _ = self
+                        .tx
+                        .send(OscMessage {
+                            addr: "/avatar/parameters/PS_Strength".to_string(),
+                            args: vec![OscType::Float(*strength.lock().await)],
+                        })
+                        .await;
+                }
                 _ => {}
             }
         }
