@@ -5,7 +5,7 @@ This is an OSC manager for handling multiple VRChat OSC plugins at once.
 ## Configuration
 
 Before you run the program, you must create a configuration file named `osc-manager.toml` in your config directory. On
-Linux, that'd be `~/.config`, on Windows, that'd be `C:\Users\username\AppData\Roaming`.
+Linux, that'd be `~/.config`, on Windows, that'd be `C:\Users\username\Application Data`.
 
 You can find the skeleton for that config file in the `examples` folder.
 
@@ -19,8 +19,8 @@ This is indicated in your tray bar through the `OSC` icon. When it's inactive, i
 
 ## OS support
 
-At the moment only Linux is actively supported. This primarily comes down to the tray library being used. I might
-look into supporting Windows as well if people are interested in it.
+At the moment Linux is the primary supported target. Windows is also functional, but has currently no support for a tray
+icon.
 
 ## Plugins
 

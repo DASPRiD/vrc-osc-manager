@@ -1,11 +1,10 @@
 mod config;
 mod osc;
 mod plugins;
+mod tray;
 
 use crate::config::{load_config, Config};
 use anyhow::{Context, Result};
-use image::Rgba;
-use ksni::{Icon, MenuItem};
 use log::{debug, info};
 use std::sync::Arc;
 use std::time::Duration;
@@ -15,54 +14,6 @@ use tokio::time::sleep;
 use tokio_graceful_shutdown::{
     errors::CancelledByShutdown, FutureExt, NestedSubsystem, SubsystemHandle, Toplevel,
 };
-
-fn convert(img: &[u8]) -> Result<Vec<u8>> {
-    let img = image::load_from_memory(img)?;
-    let mut img = img.to_rgba8();
-
-    for Rgba(pixel) in img.pixels_mut() {
-        *pixel = u32::from_be_bytes(*pixel).rotate_right(8).to_be_bytes();
-    }
-
-    Ok(img.into_raw())
-}
-
-const STANDARD_ICON: &[u8] = include_bytes!("../assets/icon.png");
-const ACTIVE_ICON: &[u8] = include_bytes!("../assets/icon-active.png");
-
-struct ApplicationTray {
-    running: bool,
-}
-
-impl ksni::Tray for ApplicationTray {
-    fn id(&self) -> String {
-        "osx-manager".to_string()
-    }
-
-    fn icon_pixmap(&self) -> Vec<Icon> {
-        vec![Icon {
-            width: 64,
-            height: 64,
-            data: convert(if self.running {
-                ACTIVE_ICON
-            } else {
-                STANDARD_ICON
-            })
-            .unwrap(),
-        }]
-    }
-
-    fn menu(&self) -> Vec<MenuItem<Self>> {
-        use ksni::menu::*;
-
-        vec![StandardItem {
-            label: "Exit".into(),
-            activate: Box::new(|_| std::process::exit(0)),
-            ..Default::default()
-        }
-        .into()]
-    }
-}
 
 struct VrChatActivity {
     tx: mpsc::Sender<bool>,
@@ -144,24 +95,17 @@ impl Launcher {
     }
 
     async fn wait(&mut self, subsys: &SubsystemHandle) -> Result<()> {
-        let service = ksni::TrayService::new(ApplicationTray { running: false });
-        let handle = service.handle();
-        service.spawn();
-
+        let mut tray = tray::Tray::new();
         let mut plugin_subsys: Option<NestedSubsystem> = None;
 
         while let Some(vrchat_running) = self.rx.recv().await {
             if vrchat_running && plugin_subsys.is_none() {
-                handle.update(|tray: &mut ApplicationTray| {
-                    tray.running = true;
-                });
+                tray.set_running(true);
 
                 let config = self.config.clone();
                 plugin_subsys = Some(subsys.start("Plugins", |subsys| run_plugins(subsys, config)));
             } else if !vrchat_running && plugin_subsys.is_some() {
-                handle.update(|tray: &mut ApplicationTray| {
-                    tray.running = false;
-                });
+                tray.set_running(false);
 
                 subsys
                     .perform_partial_shutdown(plugin_subsys.context("Plugin subsys not some")?)
