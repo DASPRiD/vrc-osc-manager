@@ -1,7 +1,6 @@
 use log::warn;
 
-pub struct Tray {
-}
+pub struct Tray {}
 
 impl Tray {
     pub fn new() -> Self {
@@ -9,6 +8,5 @@ impl Tray {
         Self {}
     }
 
-    pub fn set_running(&mut self, _running: bool) {
-    }
+    pub fn set_running(&mut self, _running: bool) {}
 }

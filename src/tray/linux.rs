@@ -33,20 +33,19 @@ impl ksni::Tray for KsniTray {
             } else {
                 STANDARD_ICON
             })
-                .unwrap(),
+            .unwrap(),
         }]
     }
 
     fn menu(&self) -> Vec<MenuItem<Self>> {
         use ksni::menu::*;
 
-        vec![
-            StandardItem {
-                label: "Exit".into(),
-                activate: Box::new(|_| std::process::exit(0)),
-                ..Default::default()
-            }.into()
-        ]
+        vec![StandardItem {
+            label: "Exit".into(),
+            activate: Box::new(|_| std::process::exit(0)),
+            ..Default::default()
+        }
+        .into()]
     }
 }
 
@@ -60,9 +59,7 @@ impl Tray {
         let handle = service.handle();
         service.spawn();
 
-        Self {
-            handle,
-        }
+        Self { handle }
     }
 
     pub fn set_running(&mut self, running: bool) {
