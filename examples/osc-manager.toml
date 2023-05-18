@@ -7,3 +7,4 @@ username = ""
 api_key = ""
 code = ""
 duration = 4
+intensity_cap = 1.0
