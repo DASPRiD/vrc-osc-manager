@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
 use directories::BaseDirs;
-use log::info;
 use serde::{Deserialize, Serialize};
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -74,8 +73,6 @@ pub async fn load_config() -> Result<Config> {
     let mut toml_config = String::new();
     file.read_to_string(&mut toml_config).await?;
     let config: Config = toml::from_str(&toml_config)?;
-
-    info!("config: {:?}", config);
 
     Ok(config)
 }

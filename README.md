@@ -42,16 +42,20 @@ same functionality as the original application minus the functionality of toggli
 This plugin controls a user configurable [PiShock](https://pishock.com) instance. It is driven through the following
 VRChat parameters:
 
-| Parameter                                  | Type    | Description                       |
-|--------------------------------------------|---------|-----------------------------------|
-| `/avatar/parameters/PS_Minus_Pressed`      | `bool`  | Intensity decrease button pressed |
-| `/avatar/parameters/PS_Plus_Pressed`       | `bool`  | Intensity increase button pressed |
-| `/avatar/parameters/PS_ShockLeft_Pressed`  | `bool`  | Left shock button pressed         |
-| `/avatar/parameters/PS_ShockRight_Pressed` | `bool`  | Right shock button pressed        |
-| `/avatar/parameters/PS_Intensity`          | `float` | Intensity going from 0.0 to 1.0   |
+| Parameter               | Type    | Description                                                                                       |
+|-------------------------|---------|---------------------------------------------------------------------------------------------------|
+| `PS_Minus_Pressed`      | `bool`  | Intensity decrease button pressed                                                                 |
+| `PS_Plus_Pressed`       | `bool`  | Intensity increase button pressed                                                                 |
+| `PS_ShockLeft_Pressed`  | `bool`  | Left shock button pressed                                                                         |
+| `PS_ShockRight_Pressed` | `bool`  | Right shock button pressed                                                                        |
+| `PS_Intensity`          | `float` | Intensity going from 0.0 to 1.0                                                                   |
+| `PS_QuickShock`         | `float` | Triggers a short shock with the given intensity once. Reset it by setting it to a negative value. |
 
 You can configure the duration (default 4) and an intensity cap (default 1.0) through the configuration file. You must
 also set your credentials in there.
+
+Quick shocks are always send with a duration of 1 second. You can trigger these with your own contact receivers, e.g.
+by driving the variable through an animation controller.
 
 At the moment, the UI for this is not open source, so you will have to implement your own UI on your avatar. The pressed
 parameters are only read by the plugin, while the strength (intensity) parameter is both read and written, so you can

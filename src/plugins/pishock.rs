@@ -121,6 +121,54 @@ struct ShockBody {
     intensity: u8,
 }
 
+async fn send_shock(config: &Arc<Config>, intensity: f32, duration: u8) {
+    let intensity_cap = config.pishock.intensity_cap.clamp(0., 1.);
+    let intensity = 1 + (99. * intensity * intensity_cap) as u8;
+    let duration = duration.clamp(1, 15);
+
+    info!(
+        "Sending shock with intensity {} and duration {}",
+        intensity, duration
+    );
+
+    let body = ShockBody {
+        username: config.pishock.username.clone(),
+        api_key: config.pishock.api_key.clone(),
+        code: config.pishock.code.clone(),
+        name: "OSC Manager - PiShock Plugin".to_string(),
+        op: 0,
+        duration: config.pishock.duration,
+        intensity,
+    };
+
+    let client = reqwest::Client::new();
+    let response = client
+        .post("https://do.pishock.com/api/apioperate")
+        .json(&body)
+        .send()
+        .await;
+
+    match response {
+        Ok(response) => {
+            let status = response.text().await;
+
+            match status {
+                Ok(status) => match status.as_str() {
+                    "Not Authorized." => warn!("Invalid credentials"),
+                    "Operation Succeeded." => debug!("Shock succeeded"),
+                    _ => warn!("Unknown response"),
+                },
+                Err(_) => {
+                    warn!("Failed to parse response");
+                }
+            }
+        }
+        Err(_) => {
+            warn!("Failed to contact pishock API");
+        }
+    }
+}
+
 async fn handle_shock(
     mut shock_rx: mpsc::Receiver<(ShockButton, bool)>,
     intensity: Arc<Mutex<f32>>,
@@ -142,51 +190,10 @@ async fn handle_shock(
                 shock_cancel = Some(token.clone());
                 let intensity = intensity.clone();
                 let config = config.clone();
-                let intensity_cap = config.pishock.intensity_cap.clamp(0., 1.);
 
                 spawn(async move {
                     loop {
-                        let intensity = *intensity.lock().await;
-                        let intensity = 1 + (99. * intensity * intensity_cap) as u8;
-
-                        info!("Sending shock with intensity {}", intensity);
-
-                        let body = ShockBody {
-                            username: config.pishock.username.clone(),
-                            api_key: config.pishock.api_key.clone(),
-                            code: config.pishock.code.clone(),
-                            name: "OSC Manager - PiShock Plugin".to_string(),
-                            op: 0,
-                            duration: config.pishock.duration,
-                            intensity,
-                        };
-
-                        let client = reqwest::Client::new();
-                        let response = client
-                            .post("https://do.pishock.com/api/apioperate")
-                            .json(&body)
-                            .send()
-                            .await;
-
-                        match response {
-                            Ok(response) => {
-                                let status = response.text().await;
-
-                                match status {
-                                    Ok(status) => match status.as_str() {
-                                        "Not Authorized." => warn!("Invalid credentials"),
-                                        "Operation Succeeded." => debug!("Shock succeeded"),
-                                        _ => warn!("Unknown response"),
-                                    },
-                                    Err(_) => {
-                                        warn!("Failed to parse response");
-                                    }
-                                }
-                            }
-                            Err(_) => {
-                                warn!("Failed to contact pishock API");
-                            }
-                        }
+                        send_shock(&config, *intensity.lock().await, config.pishock.duration).await;
 
                         select! {
                             _ = token.cancelled() => return,
@@ -227,7 +234,7 @@ impl PiShock {
         let delta_intensity = intensity.clone();
         let shock_intensity = intensity.clone();
         let osc_tx = self.tx.clone();
-        let config = self.config.clone();
+        let shock_config = self.config.clone();
 
         spawn(async move {
             let _ = handle_modifier(modifier_rx, delta_tx).await;
@@ -238,7 +245,7 @@ impl PiShock {
         });
 
         spawn(async move {
-            let _ = handle_shock(shock_rx, shock_intensity, config).await;
+            let _ = handle_shock(shock_rx, shock_intensity, shock_config).await;
         });
 
         while let Ok(message) = self.rx.recv().await {
@@ -257,6 +264,9 @@ impl PiShock {
                 }
                 ("/avatar/parameters/PS_Intensity", &[OscType::Float(value)]) => {
                     *intensity.lock().await = value;
+                }
+                ("/avatar/parameters/PS_QuickShock", &[OscType::Float(value)]) => {
+                    send_shock(&self.config, value, 1).await;
                 }
                 ("/avatar/change", &[OscType::String(_)]) => {
                     let _ = self
