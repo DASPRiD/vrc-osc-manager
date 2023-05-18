@@ -266,7 +266,9 @@ impl PiShock {
                     *intensity.lock().await = value;
                 }
                 ("/avatar/parameters/PS_QuickShock", &[OscType::Float(value)]) => {
-                    send_shock(&self.config, value, 1).await;
+                    if value >= 0. {
+                        send_shock(&self.config, value, 1).await;
+                    }
                 }
                 ("/avatar/change", &[OscType::String(_)]) => {
                     let _ = self
