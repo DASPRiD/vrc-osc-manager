@@ -1,0 +1,3 @@
+app_icon ICON "icon-active.ico"
+inactive-icon ICON "icon-inactive.ico"
+active-icon ICON "icon-active.ico"

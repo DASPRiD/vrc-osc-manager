@@ -14,7 +14,6 @@ cfg-if = "1.0.0"
 chrono = "0.4.24"
 directories = "5.0.1"
 env_logger = "0.10.0"
-image = "0.24.6"
 log = "0.4.17"
 reqwest = { version = "0.11.17", features = ["default", "json"], optional = true }
 serde = { version = "1.0.163", features = ["derive"] }
@@ -25,8 +24,15 @@ tokio-stream = "0.1.14"
 tokio-util = "0.7.8"
 toml = "0.7.3"
 
+[build-dependencies]
+image = "0.24.6"
+embed-resource = "2.1.1"
+
 [target.'cfg(target_os = "linux")'.dependencies]
-ksni = "0.2.0"
+tray-item = { git = "https://github.com/DASPRiD/tray-item-rs.git", branch = "fix/ksni", features = ["ksni"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+tray-item = { git = "https://github.com/DASPRiD/tray-item-rs.git", branch = "fix/ksni" }
 
 [features]
 default = ["pishock", "watch"]

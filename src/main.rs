@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 mod config;
 mod osc;
 mod plugins;
@@ -110,13 +112,13 @@ impl Launcher {
     }
 
     async fn wait(&mut self, subsys: &SubsystemHandle) -> Result<()> {
-        let mut tray = tray::Tray::new();
+        let mut tray = tray::Tray::new()?;
         let mut plugin_subsys: Option<NestedSubsystem> = None;
 
         while let Some(vrchat_running) = self.rx.recv().await {
             if vrchat_running {
                 if plugin_subsys.is_none() {
-                    tray.set_running(true);
+                    tray.set_running(true)?;
 
                     let config = self.config.clone();
                     let receiver_tx = self.receiver_tx.clone();
@@ -128,7 +130,7 @@ impl Launcher {
                 }
             } else if !vrchat_running {
                 if let Some(plugin_subsys) = plugin_subsys {
-                    tray.set_running(false);
+                    tray.set_running(false)?;
 
                     subsys.perform_partial_shutdown(plugin_subsys).await?;
                 }

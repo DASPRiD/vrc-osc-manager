@@ -27,8 +27,7 @@ This is indicated in your tray bar through the `OSC` icon. When it's inactive, i
 
 ## OS support
 
-At the moment Linux is the primary supported target. Windows is also functional, but has currently no support for a tray
-icon.
+Both Linux and Windows are supported, though Linux is the primarily tested platform.
 
 ## Plugins
 
