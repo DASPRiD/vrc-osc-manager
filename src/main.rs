@@ -4,7 +4,8 @@ mod plugins;
 mod tray;
 
 use crate::config::{load_config, Config};
-use anyhow::{Context, Result};
+use anyhow::Result;
+use async_osc::OscMessage;
 use log::{debug, info};
 use std::sync::Arc;
 use std::time::Duration;
@@ -59,30 +60,28 @@ impl VrChatActivity {
     }
 }
 
-async fn run_plugins(subsys: SubsystemHandle, config: Arc<Config>) -> Result<()> {
-    let (sender_tx, sender_rx) = mpsc::channel(64);
-    let (receiver_tx, receiver_rx) = broadcast::channel(64);
-
+async fn run_plugins(
+    subsys: SubsystemHandle,
+    config: Arc<Config>,
+    receiver_tx: broadcast::Sender<OscMessage>,
+    sender_tx: mpsc::Sender<OscMessage>,
+) -> Result<()> {
     #[cfg(feature = "watch")]
-    let plugin_watch_sender = sender_tx.clone();
+    {
+        let sender_tx = sender_tx.clone();
+        subsys.start("PluginWatch", |subsys| {
+            plugins::watch::Watch::new(sender_tx).run(subsys)
+        });
+    }
 
-    let send_port = config.osc.send_port;
-    let receive_port = config.osc.receive_port;
-
-    #[cfg(feature = "watch")]
-    subsys.start("PluginWatch", |subsys| {
-        plugins::watch::Watch::new(plugin_watch_sender).run(subsys)
-    });
     #[cfg(feature = "pishock")]
-    subsys.start("PluginPiShock", |subsys| {
-        plugins::pishock::PiShock::new(sender_tx, receiver_rx, config).run(subsys)
-    });
-    subsys.start("OscSender", move |subsys| {
-        osc::Sender::new(sender_rx, send_port).run(subsys)
-    });
-    subsys.start("OscReceiver", move |subsys| {
-        osc::Receiver::new(receiver_tx, receive_port).run(subsys)
-    });
+    {
+        let sender_tx = sender_tx.clone();
+        let receiver_rx = receiver_tx.subscribe();
+        subsys.start("PluginPiShock", |subsys| {
+            plugins::pishock::PiShock::new(sender_tx, receiver_rx, config).run(subsys)
+        });
+    }
 
     subsys.on_shutdown_requested().await;
     Ok(())
@@ -91,11 +90,23 @@ async fn run_plugins(subsys: SubsystemHandle, config: Arc<Config>) -> Result<()>
 struct Launcher {
     rx: mpsc::Receiver<bool>,
     config: Arc<Config>,
+    receiver_tx: broadcast::Sender<OscMessage>,
+    sender_tx: mpsc::Sender<OscMessage>,
 }
 
 impl Launcher {
-    fn new(rx: mpsc::Receiver<bool>, config: Arc<Config>) -> Self {
-        Self { rx, config }
+    fn new(
+        rx: mpsc::Receiver<bool>,
+        config: Arc<Config>,
+        receiver_tx: broadcast::Sender<OscMessage>,
+        sender_tx: mpsc::Sender<OscMessage>,
+    ) -> Self {
+        Self {
+            rx,
+            config,
+            receiver_tx,
+            sender_tx,
+        }
     }
 
     async fn wait(&mut self, subsys: &SubsystemHandle) -> Result<()> {
@@ -103,17 +114,25 @@ impl Launcher {
         let mut plugin_subsys: Option<NestedSubsystem> = None;
 
         while let Some(vrchat_running) = self.rx.recv().await {
-            if vrchat_running && plugin_subsys.is_none() {
-                tray.set_running(true);
+            if vrchat_running {
+                if plugin_subsys.is_none() {
+                    tray.set_running(true);
 
-                let config = self.config.clone();
-                plugin_subsys = Some(subsys.start("Plugins", |subsys| run_plugins(subsys, config)));
-            } else if !vrchat_running && plugin_subsys.is_some() {
-                tray.set_running(false);
+                    let config = self.config.clone();
+                    let receiver_tx = self.receiver_tx.clone();
+                    let sender_tx = self.sender_tx.clone();
 
-                subsys
-                    .perform_partial_shutdown(plugin_subsys.context("Plugin subsys not some")?)
-                    .await?;
+                    plugin_subsys = Some(subsys.start("Plugins", move |subsys| {
+                        run_plugins(subsys, config, receiver_tx, sender_tx)
+                    }));
+                }
+            } else if !vrchat_running {
+                if let Some(plugin_subsys) = plugin_subsys {
+                    tray.set_running(false);
+
+                    subsys.perform_partial_shutdown(plugin_subsys).await?;
+                }
+
                 plugin_subsys = None;
             }
         }
@@ -139,11 +158,26 @@ async fn main() -> Result<()> {
     let config = Arc::new(load_config().await?);
     let (tx, rx) = mpsc::channel(2);
 
+    let (sender_tx, sender_rx) = mpsc::channel(64);
+    let (receiver_tx, _) = broadcast::channel(64);
+    let launcher_receiver_tx = receiver_tx.clone();
+
+    let send_port = config.osc.send_port;
+    let receive_port = config.osc.receive_port;
+
     Toplevel::new()
         .start("VrChatActivity", |subsys| {
             VrChatActivity::new(tx).run(subsys)
         })
-        .start("Launcher", |subsys| Launcher::new(rx, config).run(subsys))
+        .start("Launcher", move |subsys| {
+            Launcher::new(rx, config, launcher_receiver_tx, sender_tx).run(subsys)
+        })
+        .start("OscSender", move |subsys| {
+            osc::Sender::new(sender_rx, send_port).run(subsys)
+        })
+        .start("OscReceiver", move |subsys| {
+            osc::Receiver::new(receiver_tx, receive_port).run(subsys)
+        })
         .catch_signals()
         .handle_shutdown_requests(Duration::from_millis(1000))
         .await
