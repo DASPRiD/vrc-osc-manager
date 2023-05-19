@@ -12,6 +12,7 @@ use log::{debug, info};
 use std::sync::Arc;
 use std::time::Duration;
 use sysinfo::{ProcessRefreshKind, RefreshKind, System, SystemExt};
+use tokio::select;
 use tokio::sync::{broadcast, mpsc};
 use tokio::time::sleep;
 use tokio_graceful_shutdown::{
@@ -112,30 +113,52 @@ impl Launcher {
     }
 
     async fn wait(&mut self, subsys: &SubsystemHandle) -> Result<()> {
-        let mut tray = tray::Tray::new()?;
-        let mut plugin_subsys: Option<NestedSubsystem> = None;
+        let (reload_tx, mut reload_rx) = mpsc::channel(4);
+        let mut tray = tray::Tray::new(reload_tx)?;
+        let mut maybe_plugin_subsys: Option<NestedSubsystem> = None;
 
-        while let Some(vrchat_running) = self.rx.recv().await {
-            if vrchat_running {
-                if plugin_subsys.is_none() {
-                    tray.set_running(true)?;
+        loop {
+            select! {
+                Some(()) = reload_rx.recv() => {
+                    self.config = Arc::new(load_config().await?);
 
-                    let config = self.config.clone();
-                    let receiver_tx = self.receiver_tx.clone();
-                    let sender_tx = self.sender_tx.clone();
+                    if let Some(plugin_subsys) = maybe_plugin_subsys {
+                        subsys.perform_partial_shutdown(plugin_subsys).await?;
 
-                    plugin_subsys = Some(subsys.start("Plugins", move |subsys| {
-                        run_plugins(subsys, config, receiver_tx, sender_tx)
-                    }));
+                        let config = self.config.clone();
+                        let receiver_tx = self.receiver_tx.clone();
+                        let sender_tx = self.sender_tx.clone();
+
+                        maybe_plugin_subsys = Some(subsys.start("Plugins", move |subsys| {
+                            run_plugins(subsys, config, receiver_tx, sender_tx)
+                        }));
+                    }
                 }
-            } else if !vrchat_running {
-                if let Some(plugin_subsys) = plugin_subsys {
-                    tray.set_running(false)?;
+                Some(vrchat_running) = self.rx.recv() => {
+                    if vrchat_running {
+                        if maybe_plugin_subsys.is_none() {
+                            tray.set_running(true)?;
 
-                    subsys.perform_partial_shutdown(plugin_subsys).await?;
+                            let config = self.config.clone();
+                            let receiver_tx = self.receiver_tx.clone();
+                            let sender_tx = self.sender_tx.clone();
+
+                            maybe_plugin_subsys = Some(subsys.start("Plugins", move |subsys| {
+                                run_plugins(subsys, config, receiver_tx, sender_tx)
+                            }));
+                        }
+                    } else if !vrchat_running {
+                        if let Some(plugin_subsys) = maybe_plugin_subsys {
+                            tray.set_running(false)?;
+
+                            subsys.perform_partial_shutdown(plugin_subsys).await?;
+                            maybe_plugin_subsys = None;
+                        }
+                    }
                 }
-
-                plugin_subsys = None;
+                else => {
+                    break;
+                }
             }
         }
 

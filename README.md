@@ -25,6 +25,11 @@ well.
 
 This is indicated in your tray bar through the `OSC` icon. When it's inactive, it will be gray, otherwise green.
 
+Via the tray icon menu you also have two options available:
+
+- Exit the application
+- Reload plugins: This will reload the entire plugin config in case you changed it on disk. 
+
 ## OS support
 
 Both Linux and Windows are supported, though Linux is the primarily tested platform.
@@ -57,8 +62,8 @@ Quick shocks are always send with a duration of 1 second. You can trigger these 
 by driving the variable through an animation controller.
 
 At the moment, the UI for this is not open source, so you will have to implement your own UI on your avatar. The pressed
-parameters are only read by the plugin, while the strength (intensity) parameter is both read and written, so you can
-also control it via a radial menu.
+parameters are only read by the plugin, while the intensity parameter is both read and written, so you can also control
+it via a radial menu.
 
 In order to initiate the shock, both shock buttons have to be pressed at the same time.
 

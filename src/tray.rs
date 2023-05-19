@@ -1,4 +1,5 @@
 use anyhow::Result;
+use tokio::sync::mpsc;
 use tray_item::{IconSource, TrayItem};
 
 #[cfg(target_os = "linux")]
@@ -40,8 +41,12 @@ pub struct Tray {
 }
 
 impl Tray {
-    pub fn new() -> Result<Self> {
+    pub fn new(reload_tx: mpsc::Sender<()>) -> Result<Self> {
         let mut tray = TrayItem::new("VRC OSC Manager", get_inactive_icon())?;
+
+        tray.add_menu_item("Reload plugins", move || {
+            reload_tx.blocking_send(()).unwrap();
+        })?;
 
         tray.add_menu_item("Exit", || {
             std::process::exit(0);
