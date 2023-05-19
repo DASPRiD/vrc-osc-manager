@@ -2,8 +2,10 @@ use image::Rgba;
 use std::{env, fs, path::Path};
 extern crate embed_resource;
 
-const INACTIVE_PNG_ICON: &[u8] = include_bytes!("assets/icon-inactive.png");
-const ACTIVE_PNG_ICON: &[u8] = include_bytes!("assets/icon-active.png");
+const DARK_INACTIVE_PNG_ICON: &[u8] = include_bytes!("assets/icon-dark-inactive.png");
+const DARK_ACTIVE_PNG_ICON: &[u8] = include_bytes!("assets/icon-dark-active.png");
+const LIGHT_INACTIVE_PNG_ICON: &[u8] = include_bytes!("assets/icon-light-inactive.png");
+const LIGHT_ACTIVE_PNG_ICON: &[u8] = include_bytes!("assets/icon-light-active.png");
 
 fn convert(img: &[u8]) -> Result<Vec<u8>, image::ImageError> {
     let img = image::load_from_memory(img)?;
@@ -22,13 +24,23 @@ fn main() {
         let out_path = Path::new(out_dir);
 
         fs::write(
-            out_path.join("linux-inactive-icon"),
-            convert(INACTIVE_PNG_ICON).unwrap(),
+            out_path.join("linux-dark-inactive-icon"),
+            convert(DARK_INACTIVE_PNG_ICON).unwrap(),
         )
         .unwrap();
         fs::write(
-            out_path.join("linux-active-icon"),
-            convert(ACTIVE_PNG_ICON).unwrap(),
+            out_path.join("linux-dark-active-icon"),
+            convert(DARK_ACTIVE_PNG_ICON).unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            out_path.join("linux-light-inactive-icon"),
+            convert(LIGHT_INACTIVE_PNG_ICON).unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            out_path.join("linux-light-active-icon"),
+            convert(LIGHT_ACTIVE_PNG_ICON).unwrap(),
         )
         .unwrap();
     }
@@ -38,7 +50,9 @@ fn main() {
     }
 
     println!("cargo:rerun-if-changed=assets/icons.rc");
-    println!("cargo:rerun-if-changed=assets/icon-inactive.ico");
-    println!("cargo:rerun-if-changed=assets/icon-active.ico");
+    println!("cargo:rerun-if-changed=assets/icon-dark-inactive.ico");
+    println!("cargo:rerun-if-changed=assets/icon-dark-active.ico");
+    println!("cargo:rerun-if-changed=assets/icon-light-inactive.ico");
+    println!("cargo:rerun-if-changed=assets/icon-light-active.ico");
     println!("cargo:rerun-if-changed=build.rs");
 }

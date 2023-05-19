@@ -28,7 +28,12 @@ This is indicated in your tray bar through the `OSC` icon. When it's inactive, i
 Via the tray icon menu you also have two options available:
 
 - Exit the application
-- Reload plugins: This will reload the entire plugin config in case you changed it on disk. 
+- Reload plugins: This will reload the entire plugin config in case you changed it on disk.
+
+## Dark mode
+
+Depending on your operating system theme, the default light icons might not be visible in your tray bar. You can switch
+to icons for dark mode by passing `--dark-mode-icons` as command line argument.
 
 ## OS support
 

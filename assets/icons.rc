@@ -1,3 +1,6 @@
-app_icon ICON "icon-active.ico"
-inactive-icon ICON "icon-inactive.ico"
-active-icon ICON "icon-active.ico"
+app_icon ICON "icon-light-active.ico"
+dark_inactive_icon ICON "icon-dark-inactive.ico"
+dark_active_icon ICON "icon-dark-active.ico"
+light_inactive_icon ICON "icon-light-inactive.ico"
+light_active_icon ICON "icon-light-active.ico"
+

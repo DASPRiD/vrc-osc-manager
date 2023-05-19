@@ -11,6 +11,7 @@ mod tray;
 use crate::config::{load_config, Config};
 use anyhow::Result;
 use async_osc::OscMessage;
+use clap::Parser;
 use log::{debug, info};
 use std::sync::Arc;
 use std::time::Duration;
@@ -98,6 +99,7 @@ struct Launcher {
     config: Arc<Config>,
     receiver_tx: broadcast::Sender<OscMessage>,
     sender_tx: mpsc::Sender<OscMessage>,
+    dark_mode_icons: bool,
 }
 
 impl Launcher {
@@ -106,18 +108,20 @@ impl Launcher {
         config: Arc<Config>,
         receiver_tx: broadcast::Sender<OscMessage>,
         sender_tx: mpsc::Sender<OscMessage>,
+        dark_mode_icons: bool,
     ) -> Self {
         Self {
             rx,
             config,
             receiver_tx,
             sender_tx,
+            dark_mode_icons,
         }
     }
 
     async fn wait(&mut self, subsys: &SubsystemHandle) -> Result<()> {
         let (reload_tx, mut reload_rx) = mpsc::channel(4);
-        let mut tray = tray::Tray::new(reload_tx)?;
+        let mut tray = tray::Tray::new(reload_tx, self.dark_mode_icons)?;
         let mut maybe_plugin_subsys: Option<NestedSubsystem> = None;
 
         loop {
@@ -179,9 +183,18 @@ impl Launcher {
     }
 }
 
+#[derive(Parser)]
+struct Args {
+    /// Use icons optimized for dark mode
+    #[arg(long, default_value_t = false)]
+    dark_mode_icons: bool,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::init();
+
+    let args = Args::parse();
 
     let config = Arc::new(load_config().await?);
     let (tx, rx) = mpsc::channel(2);
@@ -198,7 +211,14 @@ async fn main() -> Result<()> {
             VrChatActivity::new(tx).run(subsys)
         })
         .start("Launcher", move |subsys| {
-            Launcher::new(rx, config, launcher_receiver_tx, sender_tx).run(subsys)
+            Launcher::new(
+                rx,
+                config,
+                launcher_receiver_tx,
+                sender_tx,
+                args.dark_mode_icons,
+            )
+            .run(subsys)
         })
         .start("OscSender", move |subsys| {
             osc::Sender::new(sender_rx, send_port).run(subsys)
