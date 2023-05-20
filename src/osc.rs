@@ -56,7 +56,7 @@ impl Receiver {
             match packet {
                 OscPacket::Bundle(_) => {}
                 OscPacket::Message(message) => {
-                    self.tx.send(message)?;
+                    let _ = self.tx.send(message);
                 }
             }
         }
