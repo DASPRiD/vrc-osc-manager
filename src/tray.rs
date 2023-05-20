@@ -48,18 +48,18 @@ fn get_active_icon(dark_mode: bool) -> IconSource {
 #[cfg(target_os = "windows")]
 fn get_inactive_icon(dark_mode: bool) -> IconSource {
     IconSource::Resource(if dark_mode {
-        "icon-dark-inactive.ico"
+        "dark_inactive_icon"
     } else {
-        "icon-light-inactive.ico"
+        "light_inactive_icon"
     })
 }
 
 #[cfg(target_os = "windows")]
 fn get_active_icon(dark_mode: bool) -> IconSource {
     IconSource::Resource(if dark_mode {
-        "icon-dark-inactive.ico"
+        "dark_active_icon"
     } else {
-        "icon-light-inactive.ico"
+        "light_active_icon"
     })
 }
 
