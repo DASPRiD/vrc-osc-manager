@@ -64,6 +64,7 @@ VRChat parameters:
 | `PS_ShockRight_Pressed` | `bool`  | Right shock button pressed                                                                        |
 | `PS_Intensity`          | `float` | Intensity going from 0.0 to 1.0                                                                   |
 | `PS_QuickShock`         | `float` | Triggers a short shock with the given intensity once. Reset it by setting it to a negative value. |
+| `PS_ShockActive`        | `bool`  | Set to true while a shock is active, then automatically reset to false.                           |
 
 You can configure the duration (default 4) and an intensity cap (default 1.0) through the configuration file. You must
 also set your credentials in there.

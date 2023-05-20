@@ -121,7 +121,12 @@ struct ShockBody {
     intensity: u8,
 }
 
-async fn send_shock(config: &Arc<Config>, intensity: f32, duration: u8) {
+async fn send_shock(
+    config: &Arc<Config>,
+    intensity: f32,
+    duration: u8,
+    activity_tx: &mpsc::Sender<u8>,
+) {
     let intensity_cap = config.pishock.intensity_cap.clamp(0., 1.);
     let intensity = 1 + (99. * intensity * intensity_cap) as u8;
     let duration = duration.clamp(1, 15);
@@ -155,7 +160,10 @@ async fn send_shock(config: &Arc<Config>, intensity: f32, duration: u8) {
             match status {
                 Ok(status) => match status.as_str() {
                     "Not Authorized." => warn!("Invalid credentials"),
-                    "Operation Succeeded." => debug!("Shock succeeded"),
+                    "Operation Succeeded." => {
+                        debug!("Shock succeeded");
+                        let _ = activity_tx.send(duration).await;
+                    }
                     _ => warn!("Unknown response"),
                 },
                 Err(_) => {
@@ -173,6 +181,7 @@ async fn handle_shock(
     mut shock_rx: mpsc::Receiver<(ShockButton, bool)>,
     intensity: Arc<Mutex<f32>>,
     config: Arc<Config>,
+    activity_tx: mpsc::Sender<u8>,
 ) -> Result<()> {
     let mut left_pressed = false;
     let mut right_pressed = false;
@@ -190,10 +199,17 @@ async fn handle_shock(
                 shock_cancel = Some(token.clone());
                 let intensity = intensity.clone();
                 let config = config.clone();
+                let activity_tx = activity_tx.clone();
 
                 spawn(async move {
                     loop {
-                        send_shock(&config, *intensity.lock().await, config.pishock.duration).await;
+                        send_shock(
+                            &config,
+                            *intensity.lock().await,
+                            config.pishock.duration,
+                            &activity_tx,
+                        )
+                        .await;
 
                         select! {
                             _ = token.cancelled() => return,
@@ -209,6 +225,42 @@ async fn handle_shock(
     }
 
     Ok(())
+}
+
+async fn handle_activity(mut activity_rx: mpsc::Receiver<u8>, osc_tx: mpsc::Sender<OscMessage>) {
+    while let Some(duration) = activity_rx.recv().await {
+        let _ = osc_tx
+            .send(OscMessage {
+                addr: "/avatar/parameters/PS_ShockActive".to_string(),
+                args: vec![OscType::Bool(true)],
+            })
+            .await;
+
+        let mut next_disabler = Some(sleep(Duration::from_secs(duration as u64)));
+
+        while let Some(disabler) = next_disabler {
+            next_disabler = None;
+            let deadline = disabler.deadline();
+
+            select! {
+                Some(duration) = activity_rx.recv() => {
+                    let new_disabler = sleep(Duration::from_secs(duration as u64));
+
+                    if new_disabler.deadline() > deadline {
+                        next_disabler = Some(new_disabler);
+                    }
+                }
+                _ = disabler => {
+                    let _ = osc_tx
+                        .send(OscMessage {
+                            addr: "/avatar/parameters/PS_ShockActive".to_string(),
+                            args: vec![OscType::Bool(false)],
+                        })
+                        .await;
+                }
+            }
+        }
+    }
 }
 
 pub struct PiShock {
@@ -227,25 +279,35 @@ impl PiShock {
     }
 
     async fn handle_buttons(&mut self) -> Result<()> {
+        let (activity_tx, activity_rx) = mpsc::channel(8);
         let (shock_tx, shock_rx) = mpsc::channel(8);
         let (modifier_tx, modifier_rx) = mpsc::channel(8);
         let (delta_tx, delta_rx) = mpsc::channel(8);
         let intensity = Arc::new(Mutex::new(0_f32));
-        let delta_intensity = intensity.clone();
-        let shock_intensity = intensity.clone();
-        let osc_tx = self.tx.clone();
-        let shock_config = self.config.clone();
 
         spawn(async move {
             let _ = handle_modifier(modifier_rx, delta_tx).await;
         });
 
-        spawn(async move {
-            let _ = handle_delta(delta_rx, delta_intensity, osc_tx).await;
-        });
+        let delta_intensity = intensity.clone();
+        let delta_osc_tx = self.tx.clone();
 
         spawn(async move {
-            let _ = handle_shock(shock_rx, shock_intensity, shock_config).await;
+            let _ = handle_delta(delta_rx, delta_intensity, delta_osc_tx).await;
+        });
+
+        let shock_intensity = intensity.clone();
+        let shock_config = self.config.clone();
+        let shock_activity_tx = activity_tx.clone();
+
+        spawn(async move {
+            let _ = handle_shock(shock_rx, shock_intensity, shock_config, shock_activity_tx).await;
+        });
+
+        let activity_osc_tx = self.tx.clone();
+
+        spawn(async move {
+            handle_activity(activity_rx, activity_osc_tx).await;
         });
 
         while let Ok(message) = self.rx.recv().await {
@@ -267,7 +329,7 @@ impl PiShock {
                 }
                 ("/avatar/parameters/PS_QuickShock", &[OscType::Float(value)]) => {
                     if value >= 0. {
-                        send_shock(&self.config, value, 1).await;
+                        send_shock(&self.config, value, 1, &activity_tx).await;
                     }
                 }
                 ("/avatar/change", &[OscType::String(_)]) => {
