@@ -25,11 +25,12 @@ use tokio_graceful_shutdown::{
 
 struct VrChatActivity {
     tx: mpsc::Sender<bool>,
+    disabled: bool,
 }
 
 impl VrChatActivity {
-    fn new(tx: mpsc::Sender<bool>) -> Self {
-        Self { tx }
+    fn new(tx: mpsc::Sender<bool>, disabled: bool) -> Self {
+        Self { tx, disabled }
     }
 
     async fn check(&self) -> Result<()> {
@@ -57,6 +58,12 @@ impl VrChatActivity {
     }
 
     async fn run(self, subsys: SubsystemHandle) -> Result<()> {
+        if self.disabled {
+            self.tx.send(true).await?;
+            subsys.on_shutdown_requested().await;
+            return Ok(());
+        }
+
         match (self.check().cancel_on_shutdown(&subsys)).await {
             Ok(Ok(())) => subsys.request_shutdown(),
             Ok(Err(error)) => return Err(error),
@@ -188,6 +195,10 @@ struct Args {
     /// Use icons optimized for dark mode
     #[arg(long, default_value_t = false)]
     dark_mode_icons: bool,
+
+    /// Run all plugins, even when VRChat is not running
+    #[arg(long, default_value_t = false)]
+    disable_activity_check: bool,
 }
 
 #[tokio::main]
@@ -207,8 +218,8 @@ async fn main() -> Result<()> {
     let receive_port = config.osc.receive_port;
 
     Toplevel::new()
-        .start("VrChatActivity", |subsys| {
-            VrChatActivity::new(tx).run(subsys)
+        .start("VrChatActivity", move |subsys| {
+            VrChatActivity::new(tx, args.disable_activity_check).run(subsys)
         })
         .start("Launcher", move |subsys| {
             Launcher::new(

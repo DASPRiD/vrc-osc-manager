@@ -30,6 +30,11 @@ Via the tray icon menu you also have two options available:
 - Exit the application
 - Reload plugins: This will reload the entire plugin config in case you changed it on disk.
 
+## Activity check
+
+By default, plugins will only be started when VRChat is detected to be running. If you need them running for testing
+outside of VRChat, you can disable the activity check by passing `--disable-activity-check` as command line argument.
+
 ## Dark mode
 
 Depending on your operating system theme, the default light icons might not be visible in your tray bar. You can switch
