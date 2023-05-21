@@ -6,9 +6,9 @@ This is an OSC manager for handling multiple VRChat OSC plugins at once.
 
 ## Configuration
 
-Before you run the program, you should create a configuration file named `osc-manager.toml` in your config directory. On
-Linux, that'd be `~/.config`, on Windows, that'd be `C:\Users\username\Application Data`. If the file does not exist,
-the OSC Manager will create it with default values.
+Before you run the program, you should create a configuration file named `vrc-osc-manager.toml` in your config 
+directory. On Linux, that'd be `~/.config`, on Windows, that'd be `C:\Users\username\Application Data`. If the file does 
+not exist, the OSC Manager will create it with default values.
 
 You can find the skeleton for that config file in the `examples` folder.
 
@@ -33,7 +33,19 @@ Via the tray icon menu you also have two options available:
 ## Activity check
 
 By default, plugins will only be started when VRChat is detected to be running. If you need them running for testing
-outside of VRChat, you can disable the activity check by passing `--disable-activity-check` as command line argument.
+outside VRChat, you can disable the activity check by passing `--disable-activity-check` as command line argument.
+
+## Logging
+
+The application normally logs all messages with info level and higher to the console as well as to a rotating log file.
+In case you experience any unexpected crashes or behaviours, you should create a bug report with the latest log file
+attached. To generate more verbose logging, you can pass the `--debug` command line argument.
+
+Please note that on Windows oyu will not see any debug output on the console with a release build.
+
+Log files can be found on Linux under `~/.local/share/vrc-osc-manager\logs`. On Windows they should be located under
+`C:\Users\username\Application Data\vrc-osc-manager\logs`. The latest log file is always called `log`, while older
+ones are suffixed with a timestamp. Log files are rotated every hour and a maximum of 12 log files is every kept.
 
 ## Dark mode
 

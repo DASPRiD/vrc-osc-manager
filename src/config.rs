@@ -54,9 +54,8 @@ pub struct Config {
 
 pub async fn load_config() -> Result<Config> {
     let base_dirs = BaseDirs::new().context("Base directories not available")?;
-    let home_dir = base_dirs.config_dir();
-
-    let path = home_dir.join("osc-manager.toml");
+    let config_dir = base_dirs.config_dir();
+    let path = config_dir.join("vrc-osc-manager.toml");
 
     if !path.exists() {
         let config: Config = Default::default();

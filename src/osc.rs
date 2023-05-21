@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use async_osc::{OscMessage, OscPacket, OscSocket};
 use tokio::sync::{broadcast, mpsc};
 use tokio_graceful_shutdown::{errors::CancelledByShutdown, FutureExt, SubsystemHandle};
@@ -23,7 +23,7 @@ impl Sender {
             let _ = socket.send(message).await;
         }
 
-        Ok(())
+        bail!("Sender stream closed unexpectedly");
     }
 
     pub async fn run(mut self, subsys: SubsystemHandle) -> Result<()> {
@@ -61,7 +61,7 @@ impl Receiver {
             }
         }
 
-        Ok(())
+        bail!("Receiver stream closed unexpectedly");
     }
 
     pub async fn run(mut self, subsys: SubsystemHandle) -> Result<()> {

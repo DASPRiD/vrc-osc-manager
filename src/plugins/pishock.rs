@@ -1,5 +1,5 @@
 use crate::config::Config;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use async_osc::{prelude::OscMessageExt, OscMessage, OscType};
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
@@ -345,7 +345,7 @@ impl PiShock {
             }
         }
 
-        Ok(())
+        bail!("Message receiver died unexpectedly");
     }
 
     pub async fn run(mut self, subsys: SubsystemHandle) -> Result<()> {

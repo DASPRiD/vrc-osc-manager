@@ -9,10 +9,15 @@ mod plugins;
 mod tray;
 
 use crate::config::{load_config, Config};
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use async_osc::OscMessage;
 use clap::Parser;
-use log::{debug, info};
+use directories::BaseDirs;
+use file_rotate::compression::Compression;
+use file_rotate::suffix::{AppendTimestamp, FileLimit};
+use file_rotate::{ContentLimit, FileRotate, TimeFrequency};
+use log::{debug, error, info, LevelFilter};
+use simplelog::{ColorChoice, CombinedLogger, TermLogger, TerminalMode, WriteLogger};
 use std::sync::Arc;
 use std::time::Duration;
 use sysinfo::{ProcessRefreshKind, RefreshKind, System, SystemExt};
@@ -47,7 +52,7 @@ impl VrChatActivity {
                 vrchat_running = running;
                 self.tx.send(vrchat_running).await?;
 
-                info!(
+                debug!(
                     "VRChat has {}",
                     if vrchat_running { "started" } else { "stopped" }
                 );
@@ -134,6 +139,7 @@ impl Launcher {
         loop {
             select! {
                 Some(()) = reload_rx.recv() => {
+                    info!("Reloading plugins");
                     self.config = Arc::new(load_config().await?);
 
                     if let Some(plugin_subsys) = maybe_plugin_subsys {
@@ -151,6 +157,7 @@ impl Launcher {
                 Some(vrchat_running) = self.rx.recv() => {
                     if vrchat_running {
                         if maybe_plugin_subsys.is_none() {
+                            info!("Starting plugins");
                             tray.set_running(true)?;
 
                             let config = self.config.clone();
@@ -163,6 +170,7 @@ impl Launcher {
                         }
                     } else if !vrchat_running {
                         if let Some(plugin_subsys) = maybe_plugin_subsys {
+                            info!("Stopping plugins");
                             tray.set_running(false)?;
 
                             subsys.perform_partial_shutdown(plugin_subsys).await?;
@@ -171,12 +179,10 @@ impl Launcher {
                     }
                 }
                 else => {
-                    break;
+                    bail!("Select yielded an unexpected result while waiting for activity message")
                 }
             }
         }
-
-        Ok(())
     }
 
     async fn run(mut self, subsys: SubsystemHandle) -> Result<()> {
@@ -199,13 +205,44 @@ struct Args {
     /// Run all plugins, even when VRChat is not running
     #[arg(long, default_value_t = false)]
     disable_activity_check: bool,
+
+    /// Enable debug logging
+    #[arg(long, default_value_t = false)]
+    debug: bool,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::init();
-
     let args = Args::parse();
+
+    let base_dirs = BaseDirs::new().context("Base directories not available")?;
+    let data_dir = base_dirs.data_dir();
+    let log_dir = data_dir.join("vrc-osc-manager/logs/log");
+
+    let log_file = FileRotate::new(
+        log_dir,
+        AppendTimestamp::default(FileLimit::MaxFiles(12)),
+        ContentLimit::Time(TimeFrequency::Hourly),
+        Compression::None,
+        #[cfg(unix)]
+        None,
+    );
+
+    let log_filter = if args.debug {
+        LevelFilter::Debug
+    } else {
+        LevelFilter::Info
+    };
+
+    CombinedLogger::init(vec![
+        TermLogger::new(
+            log_filter,
+            simplelog::Config::default(),
+            TerminalMode::Mixed,
+            ColorChoice::Auto,
+        ),
+        WriteLogger::new(log_filter, simplelog::Config::default(), log_file),
+    ])?;
 
     let config = Arc::new(load_config().await?);
     let (tx, rx) = mpsc::channel(2);
@@ -217,7 +254,7 @@ async fn main() -> Result<()> {
     let send_port = config.osc.send_port;
     let receive_port = config.osc.receive_port;
 
-    Toplevel::new()
+    let result = Toplevel::new()
         .start("VrChatActivity", move |subsys| {
             VrChatActivity::new(tx, args.disable_activity_check).run(subsys)
         })
@@ -239,6 +276,12 @@ async fn main() -> Result<()> {
         })
         .catch_signals()
         .handle_shutdown_requests(Duration::from_millis(1000))
-        .await
-        .map_err(Into::into)
+        .await;
+
+    if let Err(error) = result {
+        error!("Program crash occurred: {}", error);
+        return Err(error.into());
+    }
+
+    Ok(())
 }
