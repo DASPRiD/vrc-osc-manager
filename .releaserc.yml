@@ -6,7 +6,7 @@ plugins:
   - '@semantic-release/release-notes-generator'
   - '@semantic-release/changelog'
   - - '@semantic-release/exec'
-    - prepareCmd: "./semantic-release-build.sh ${nextRelease.version}"
+    - prepareCmd: "./release.sh ${nextRelease.version}"
   - - '@semantic-release/github'
   - - '@semantic-release/git'
     - assets:
