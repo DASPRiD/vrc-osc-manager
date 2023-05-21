@@ -84,9 +84,8 @@ also set your credentials in there.
 Quick shocks are always send with a duration of 1 second. You can trigger these with your own contact receivers, e.g.
 by driving the variable through an animation controller.
 
-At the moment, the UI for this is not open source, so you will have to implement your own UI on your avatar. The pressed
-parameters are only read by the plugin, while the intensity parameter is both read and written, so you can also control
-it via a radial menu.
+If you are looking for a ready-made UI, you can use my [VRChat PiShock Controller](https://dasprid.gumroad.com/l/llfyq). 
+Otherwise, you can implement your own UI on your avatar. The pressed parameters are only read by the plugin, while the
+intensity parameter is both read and written, so you can also control it via a radial menu.
 
 In order to initiate the shock, both shock buttons have to be pressed at the same time.
-

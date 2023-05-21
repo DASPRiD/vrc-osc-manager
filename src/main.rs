@@ -211,6 +211,8 @@ struct Args {
     debug: bool,
 }
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
@@ -243,6 +245,8 @@ async fn main() -> Result<()> {
         ),
         WriteLogger::new(log_filter, simplelog::Config::default(), log_file),
     ])?;
+
+    info!("Starting VRC OSC Manager v{}", VERSION);
 
     let config = Arc::new(load_config().await?);
     let (tx, rx) = mpsc::channel(2);
