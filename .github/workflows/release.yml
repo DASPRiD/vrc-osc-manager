@@ -63,7 +63,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         id: semantic
         with:
-          semantic_version: 21.0.2
           extra_plugins: |
             @semantic-release/changelog@6.0
             @semantic-release/exec@6.0
