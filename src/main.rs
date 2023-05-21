@@ -247,8 +247,8 @@ async fn main() -> Result<()> {
     let config = Arc::new(load_config().await?);
     let (tx, rx) = mpsc::channel(2);
 
-    let (sender_tx, sender_rx) = mpsc::channel(64);
-    let (receiver_tx, _) = broadcast::channel(64);
+    let (sender_tx, sender_rx) = mpsc::channel(128);
+    let (receiver_tx, _) = broadcast::channel(128);
     let launcher_receiver_tx = receiver_tx.clone();
 
     let send_port = config.osc.send_port;

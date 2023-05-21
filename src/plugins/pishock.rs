@@ -5,6 +5,7 @@ use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::{broadcast, mpsc, Mutex};
 use tokio::time::sleep;
 use tokio::{select, spawn};
@@ -80,12 +81,13 @@ async fn handle_delta(
         let mut intensity = intensity.lock().await;
         *intensity = (*intensity + delta).clamp(0., 1.);
 
-        let _ = osc_tx
-            .send(OscMessage {
-                addr: "/avatar/parameters/PS_Intensity".to_string(),
-                args: vec![OscType::Float(*intensity)],
-            })
-            .await;
+        let send = osc_tx.send(OscMessage {
+            addr: "/avatar/parameters/PS_Intensity".to_string(),
+            args: vec![OscType::Float(*intensity)],
+        });
+        drop(intensity);
+
+        let _ = send.await;
     }
 
     Ok(())
@@ -164,7 +166,7 @@ async fn send_shock(
                         debug!("Shock succeeded");
                         let _ = activity_tx.send(duration).await;
                     }
-                    _ => warn!("Unknown response"),
+                    _ => warn!("Unknown response: {}", status),
                 },
                 Err(_) => {
                     warn!("Failed to parse response");
@@ -310,38 +312,52 @@ impl PiShock {
             handle_activity(activity_rx, activity_osc_tx).await;
         });
 
-        while let Ok(message) = self.rx.recv().await {
-            match message.as_tuple() {
-                ("/avatar/parameters/PS_Minus_Pressed", &[OscType::Bool(value)]) => {
-                    modifier_tx.send((ModifierButton::Minus, value)).await?;
-                }
-                ("/avatar/parameters/PS_Plus_Pressed", &[OscType::Bool(value)]) => {
-                    modifier_tx.send((ModifierButton::Plus, value)).await?;
-                }
-                ("/avatar/parameters/PS_ShockLeft_Pressed", &[OscType::Bool(value)]) => {
-                    shock_tx.send((ShockButton::Left, value)).await?;
-                }
-                ("/avatar/parameters/PS_ShockRight_Pressed", &[OscType::Bool(value)]) => {
-                    shock_tx.send((ShockButton::Right, value)).await?;
-                }
-                ("/avatar/parameters/PS_Intensity", &[OscType::Float(value)]) => {
-                    *intensity.lock().await = value;
-                }
-                ("/avatar/parameters/PS_QuickShock", &[OscType::Float(value)]) => {
-                    if value >= 0. {
-                        send_shock(&self.config, value, 1, &activity_tx).await;
+        loop {
+            match self.rx.recv().await {
+                Ok(message) => match message.as_tuple() {
+                    ("/avatar/parameters/PS_Minus_Pressed", &[OscType::Bool(value)]) => {
+                        modifier_tx.send((ModifierButton::Minus, value)).await?;
                     }
-                }
-                ("/avatar/change", &[OscType::String(_)]) => {
-                    let _ = self
-                        .tx
-                        .send(OscMessage {
-                            addr: "/avatar/parameters/PS_Intensity".to_string(),
-                            args: vec![OscType::Float(*intensity.lock().await)],
-                        })
-                        .await;
-                }
-                _ => {}
+                    ("/avatar/parameters/PS_Plus_Pressed", &[OscType::Bool(value)]) => {
+                        modifier_tx.send((ModifierButton::Plus, value)).await?;
+                    }
+                    ("/avatar/parameters/PS_ShockLeft_Pressed", &[OscType::Bool(value)]) => {
+                        shock_tx.send((ShockButton::Left, value)).await?;
+                    }
+                    ("/avatar/parameters/PS_ShockRight_Pressed", &[OscType::Bool(value)]) => {
+                        shock_tx.send((ShockButton::Right, value)).await?;
+                    }
+                    ("/avatar/parameters/PS_Intensity", &[OscType::Float(value)]) => {
+                        *intensity.lock().await = value;
+                    }
+                    ("/avatar/parameters/PS_QuickShock", &[OscType::Float(value)]) => {
+                        if value >= 0. {
+                            send_shock(&self.config, value, 1, &activity_tx).await;
+                        }
+                    }
+                    ("/avatar/change", &[OscType::String(_)]) => {
+                        let _ = self
+                            .tx
+                            .send(OscMessage {
+                                addr: "/avatar/parameters/PS_Intensity".to_string(),
+                                args: vec![OscType::Float(*intensity.lock().await)],
+                            })
+                            .await;
+                    }
+                    _ => {}
+                },
+                Err(error) => match error {
+                    RecvError::Closed => {
+                        debug!("Channel closed");
+                        break;
+                    }
+                    RecvError::Lagged(skipped) => {
+                        warn!(
+                            "PiShock lagging behind, {} messages have been dropped",
+                            skipped
+                        );
+                    }
+                },
             }
         }
 
