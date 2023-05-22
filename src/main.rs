@@ -9,6 +9,7 @@ mod plugins;
 mod tray;
 
 use crate::config::{load_config, Config};
+use crate::tray::TrayMessage;
 use anyhow::{bail, Context, Result};
 use async_osc::OscMessage;
 use clap::Parser;
@@ -132,26 +133,33 @@ impl Launcher {
     }
 
     async fn wait(&mut self, subsys: &SubsystemHandle) -> Result<()> {
-        let (reload_tx, mut reload_rx) = mpsc::channel(4);
-        let mut tray = tray::Tray::new(reload_tx, self.dark_mode_icons)?;
+        let (tray_tx, mut tray_rx) = mpsc::channel(4);
+        let mut tray = tray::Tray::new(tray_tx, self.dark_mode_icons)?;
         let mut maybe_plugin_subsys: Option<NestedSubsystem> = None;
 
         loop {
             select! {
-                Some(()) = reload_rx.recv() => {
-                    info!("Reloading plugins");
-                    self.config = Arc::new(load_config().await?);
+                Some(message) = tray_rx.recv() => {
+                    match message {
+                        TrayMessage::ReloadPlugins => {
+                            info!("Reloading plugins");
+                            self.config = Arc::new(load_config().await?);
 
-                    if let Some(plugin_subsys) = maybe_plugin_subsys {
-                        subsys.perform_partial_shutdown(plugin_subsys).await?;
+                            if let Some(plugin_subsys) = maybe_plugin_subsys {
+                                subsys.perform_partial_shutdown(plugin_subsys).await?;
 
-                        let config = self.config.clone();
-                        let receiver_tx = self.receiver_tx.clone();
-                        let sender_tx = self.sender_tx.clone();
+                                let config = self.config.clone();
+                                let receiver_tx = self.receiver_tx.clone();
+                                let sender_tx = self.sender_tx.clone();
 
-                        maybe_plugin_subsys = Some(subsys.start("Plugins", move |subsys| {
-                            run_plugins(subsys, config, receiver_tx, sender_tx)
-                        }));
+                                maybe_plugin_subsys = Some(subsys.start("Plugins", move |subsys| {
+                                    run_plugins(subsys, config, receiver_tx, sender_tx)
+                                }));
+                            }
+                        }
+                        TrayMessage::Exit => {
+                            subsys.request_shutdown();
+                        }
                     }
                 }
                 Some(vrchat_running) = self.rx.recv() => {

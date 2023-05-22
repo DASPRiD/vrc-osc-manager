@@ -63,21 +63,30 @@ fn get_active_icon(dark_mode: bool) -> IconSource {
     })
 }
 
+#[derive(Debug)]
+pub enum TrayMessage {
+    ReloadPlugins,
+    Exit,
+}
+
 pub struct Tray {
     tray: TrayItem,
     dark_mode_icons: bool,
 }
 
 impl Tray {
-    pub fn new(reload_tx: mpsc::Sender<()>, dark_mode_icons: bool) -> Result<Self> {
+    pub fn new(message_tx: mpsc::Sender<TrayMessage>, dark_mode_icons: bool) -> Result<Self> {
         let mut tray = TrayItem::new("VRC OSC Manager", get_inactive_icon(dark_mode_icons))?;
 
+        let reload_plugins_tx = message_tx.clone();
         tray.add_menu_item("Reload plugins", move || {
-            reload_tx.blocking_send(()).unwrap();
+            reload_plugins_tx
+                .blocking_send(TrayMessage::ReloadPlugins)
+                .unwrap();
         })?;
 
-        tray.add_menu_item("Exit", || {
-            std::process::exit(0);
+        tray.add_menu_item("Exit", move || {
+            message_tx.blocking_send(TrayMessage::Exit).unwrap();
         })?;
 
         Ok(Self {
