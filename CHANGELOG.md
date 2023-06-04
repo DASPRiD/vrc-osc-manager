@@ -1,3 +1,15 @@
+# [1.1.0](https://github.com/DASPRiD/vrc-osc-manager/compare/v1.0.0...v1.1.0) (2023-06-04)
+
+
+### Bug Fixes
+
+* **tray:** perform clean shutdown on exit ([df5bbbc](https://github.com/DASPRiD/vrc-osc-manager/commit/df5bbbc3669fa79149b4b2c3dff02ca3e45e0a4f))
+
+
+### Features
+
+* **pishock:** add dynamic intensity cap ([700a70a](https://github.com/DASPRiD/vrc-osc-manager/commit/700a70a160c55059b241f72948c3fc8112ea362a))
+
 # 1.0.0 (2023-05-21)
 
 
