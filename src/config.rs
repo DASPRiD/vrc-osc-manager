@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use directories::BaseDirs;
 use serde::{Deserialize, Serialize};
-use tokio::fs::File;
+use tokio::fs::{metadata, File};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,7 +28,6 @@ pub struct PiShockConfig {
     pub api_key: String,
     pub code: String,
     pub duration: u8,
-    pub intensity_cap: f32,
 }
 
 impl Default for PiShockConfig {
@@ -38,7 +37,6 @@ impl Default for PiShockConfig {
             api_key: "".to_string(),
             code: "".to_string(),
             duration: 4,
-            intensity_cap: 1.,
         }
     }
 }
@@ -57,7 +55,7 @@ pub async fn load_config() -> Result<Config> {
     let config_dir = base_dirs.config_dir();
     let path = config_dir.join("vrc-osc-manager.toml");
 
-    if !path.exists() {
+    if metadata(&path).await.is_err() {
         let config: Config = Default::default();
         let mut file = File::create(&path)
             .await

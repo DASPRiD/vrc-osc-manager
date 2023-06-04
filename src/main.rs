@@ -19,6 +19,7 @@ use file_rotate::suffix::{AppendTimestamp, FileLimit};
 use file_rotate::{ContentLimit, FileRotate, TimeFrequency};
 use log::{debug, error, info, LevelFilter};
 use simplelog::{ColorChoice, CombinedLogger, TermLogger, TerminalMode, WriteLogger};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use sysinfo::{ProcessRefreshKind, RefreshKind, System, SystemExt};
@@ -83,6 +84,7 @@ impl VrChatActivity {
 async fn run_plugins(
     subsys: SubsystemHandle,
     config: Arc<Config>,
+    data_dir: PathBuf,
     receiver_tx: broadcast::Sender<OscMessage>,
     sender_tx: mpsc::Sender<OscMessage>,
 ) -> Result<()> {
@@ -99,7 +101,7 @@ async fn run_plugins(
         let sender_tx = sender_tx.clone();
         let receiver_rx = receiver_tx.subscribe();
         subsys.start("PluginPiShock", |subsys| {
-            plugins::pishock::PiShock::new(sender_tx, receiver_rx, config).run(subsys)
+            plugins::pishock::PiShock::new(sender_tx, receiver_rx, config, data_dir).run(subsys)
         });
     }
 
@@ -110,6 +112,7 @@ async fn run_plugins(
 struct Launcher {
     rx: mpsc::Receiver<bool>,
     config: Arc<Config>,
+    data_dir: PathBuf,
     receiver_tx: broadcast::Sender<OscMessage>,
     sender_tx: mpsc::Sender<OscMessage>,
     dark_mode_icons: bool,
@@ -119,6 +122,7 @@ impl Launcher {
     fn new(
         rx: mpsc::Receiver<bool>,
         config: Arc<Config>,
+        data_dir: PathBuf,
         receiver_tx: broadcast::Sender<OscMessage>,
         sender_tx: mpsc::Sender<OscMessage>,
         dark_mode_icons: bool,
@@ -126,6 +130,7 @@ impl Launcher {
         Self {
             rx,
             config,
+            data_dir,
             receiver_tx,
             sender_tx,
             dark_mode_icons,
@@ -151,9 +156,10 @@ impl Launcher {
                                 let config = self.config.clone();
                                 let receiver_tx = self.receiver_tx.clone();
                                 let sender_tx = self.sender_tx.clone();
+                                let data_dir = self.data_dir.clone();
 
                                 maybe_plugin_subsys = Some(subsys.start("Plugins", move |subsys| {
-                                    run_plugins(subsys, config, receiver_tx, sender_tx)
+                                    run_plugins(subsys, config, data_dir, receiver_tx, sender_tx)
                                 }));
                             }
                         }
@@ -171,9 +177,10 @@ impl Launcher {
                             let config = self.config.clone();
                             let receiver_tx = self.receiver_tx.clone();
                             let sender_tx = self.sender_tx.clone();
+                            let data_dir = self.data_dir.clone();
 
                             maybe_plugin_subsys = Some(subsys.start("Plugins", move |subsys| {
-                                run_plugins(subsys, config, receiver_tx, sender_tx)
+                                run_plugins(subsys, config, data_dir, receiver_tx, sender_tx)
                             }));
                         }
                     } else if !vrchat_running {
@@ -226,8 +233,8 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     let base_dirs = BaseDirs::new().context("Base directories not available")?;
-    let data_dir = base_dirs.data_dir();
-    let log_dir = data_dir.join("vrc-osc-manager/logs/log");
+    let data_dir = base_dirs.data_dir().join("vrc-osc-manager");
+    let log_dir = data_dir.join("logs/log");
 
     let log_file = FileRotate::new(
         log_dir,
@@ -274,6 +281,7 @@ async fn main() -> Result<()> {
             Launcher::new(
                 rx,
                 config,
+                data_dir,
                 launcher_receiver_tx,
                 sender_tx,
                 args.dark_mode_icons,

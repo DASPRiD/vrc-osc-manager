@@ -1,16 +1,179 @@
 use crate::config::Config;
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use async_osc::{prelude::OscMessageExt, OscMessage, OscType};
+use debounced::debounced;
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::fs::{metadata, File};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::broadcast::error::RecvError;
-use tokio::sync::{broadcast, mpsc, Mutex};
+use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio::time::sleep;
 use tokio::{select, spawn};
 use tokio_graceful_shutdown::{errors::CancelledByShutdown, FutureExt, SubsystemHandle};
+use tokio_stream::wrappers::ReceiverStream;
+use tokio_stream::StreamExt;
 use tokio_util::sync::CancellationToken;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+struct Settings {
+    intensity: f32,
+    intensity_cap: f32,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            intensity: 0.,
+            intensity_cap: 1.,
+        }
+    }
+}
+
+#[derive(Debug)]
+enum SettingsAction {
+    GetSettings {
+        responder: oneshot::Sender<Settings>,
+    },
+    SetIntensity {
+        intensity: f32,
+        responder: oneshot::Sender<Option<f32>>,
+    },
+    SetIntensityCap {
+        cap: f32,
+        responder: oneshot::Sender<Option<f32>>,
+    },
+}
+
+struct SettingsStorage {
+    path: PathBuf,
+    settings: Settings,
+}
+
+impl SettingsStorage {
+    async fn new(data_dir: PathBuf) -> Result<Self> {
+        let path = data_dir.join("pishock.toml");
+
+        if metadata(&path).await.is_err() {
+            let settings: Settings = Default::default();
+            return Ok(Self { path, settings });
+        }
+
+        let mut file = File::open(&path)
+            .await
+            .with_context(|| format!("Failed to open {}", path.display()))?;
+        let mut toml_settings = String::new();
+        file.read_to_string(&mut toml_settings).await?;
+        let settings: Settings = toml::from_str(&toml_settings)?;
+
+        Ok(Self { path, settings })
+    }
+
+    async fn run(&mut self, mut rx: mpsc::Receiver<SettingsAction>) -> Result<()> {
+        let (store_tx, store_rx) = mpsc::channel(8);
+        let mut debounced_store = debounced(ReceiverStream::new(store_rx), Duration::from_secs(10));
+
+        loop {
+            select! {
+                action = rx.recv() => {
+                    match action {
+                        Some(action) => {
+                            use SettingsAction::*;
+
+                            match action {
+                                GetSettings { responder } => {
+                                    responder.send(self.settings.clone()).unwrap();
+                                }
+                                SetIntensity {
+                                    intensity,
+                                    responder,
+                                } => {
+                                    self.settings.intensity = intensity.clamp(0., 1.);
+                                    let mut new_cap = None;
+
+                                    if self.settings.intensity_cap < self.settings.intensity {
+                                        self.settings.intensity_cap = self.settings.intensity;
+                                        new_cap = Some(self.settings.intensity_cap);
+                                    }
+
+                                    store_tx.send(()).await?;
+                                    responder.send(new_cap).unwrap();
+                                }
+                                SetIntensityCap { cap, responder } => {
+                                    self.settings.intensity_cap = cap.clamp(0., 1.);
+                                    let mut new_intensity = None;
+
+                                    if self.settings.intensity > self.settings.intensity_cap {
+                                        self.settings.intensity = self.settings.intensity_cap;
+                                        new_intensity = Some(self.settings.intensity);
+                                    }
+
+                                    store_tx.send(()).await?;
+                                    responder.send(new_intensity).unwrap();
+                                }
+                            }
+                        }
+                        None => {
+                            return Ok(());
+                        }
+                    }
+                }
+                _ = debounced_store.next() => {
+                    let mut file = File::create(&self.path)
+                        .await
+                        .with_context(|| format!("Failed to open {}", self.path.display()))?;
+                    file.write_all(toml::to_string(&self.settings)?.as_bytes())
+                        .await?;
+                }
+            }
+        }
+    }
+}
+
+async fn get_settings(settings_tx: &mpsc::Sender<SettingsAction>) -> Result<Settings> {
+    let (responder_tx, responder_rx) = oneshot::channel();
+    settings_tx
+        .send(SettingsAction::GetSettings {
+            responder: responder_tx,
+        })
+        .await
+        .unwrap();
+    Ok(responder_rx.await?)
+}
+
+async fn set_intensity(
+    settings_tx: &mpsc::Sender<SettingsAction>,
+    intensity: f32,
+) -> Result<Option<f32>> {
+    let (responder_tx, responder_rx) = oneshot::channel();
+    settings_tx
+        .send(SettingsAction::SetIntensity {
+            intensity,
+            responder: responder_tx,
+        })
+        .await
+        .unwrap();
+    Ok(responder_rx.await?)
+}
+
+async fn set_intensity_cap(
+    settings_tx: &mpsc::Sender<SettingsAction>,
+    cap: f32,
+) -> Result<Option<f32>> {
+    let (responder_tx, responder_rx) = oneshot::channel();
+    settings_tx
+        .send(SettingsAction::SetIntensityCap {
+            cap,
+            responder: responder_tx,
+        })
+        .await
+        .unwrap();
+    Ok(responder_rx.await?)
+}
 
 #[derive(Debug)]
 enum ModifierButton {
@@ -74,20 +237,20 @@ async fn handle_modifier(
 
 async fn handle_delta(
     mut delta_rx: mpsc::Receiver<f32>,
-    intensity: Arc<Mutex<f32>>,
+    settings_tx: mpsc::Sender<SettingsAction>,
     osc_tx: mpsc::Sender<OscMessage>,
 ) -> Result<()> {
     while let Some(delta) = delta_rx.recv().await {
-        let mut intensity = intensity.lock().await;
-        *intensity = (*intensity + delta).clamp(0., 1.);
+        let settings = get_settings(&settings_tx).await?;
+        let intensity = (settings.intensity + delta).clamp(0., settings.intensity_cap);
+        set_intensity(&settings_tx, intensity).await?;
 
-        let send = osc_tx.send(OscMessage {
-            addr: "/avatar/parameters/PS_Intensity".to_string(),
-            args: vec![OscType::Float(*intensity)],
-        });
-        drop(intensity);
-
-        let _ = send.await;
+        let _ = osc_tx
+            .send(OscMessage {
+                addr: "/avatar/parameters/PS_Intensity".to_string(),
+                args: vec![OscType::Float(intensity)],
+            })
+            .await;
     }
 
     Ok(())
@@ -129,8 +292,7 @@ async fn send_shock(
     duration: u8,
     activity_tx: &mpsc::Sender<u8>,
 ) {
-    let intensity_cap = config.pishock.intensity_cap.clamp(0., 1.);
-    let intensity = 1 + (99. * intensity * intensity_cap) as u8;
+    let intensity = 1 + (99. * intensity) as u8;
     let duration = duration.clamp(1, 15);
 
     info!(
@@ -181,7 +343,7 @@ async fn send_shock(
 
 async fn handle_shock(
     mut shock_rx: mpsc::Receiver<(ShockButton, bool)>,
-    intensity: Arc<Mutex<f32>>,
+    settings_tx: mpsc::Sender<SettingsAction>,
     config: Arc<Config>,
     activity_tx: mpsc::Sender<u8>,
 ) -> Result<()> {
@@ -199,15 +361,17 @@ async fn handle_shock(
             if shock_cancel.is_none() {
                 let token = CancellationToken::new();
                 shock_cancel = Some(token.clone());
-                let intensity = intensity.clone();
                 let config = config.clone();
                 let activity_tx = activity_tx.clone();
+                let settings_tx = settings_tx.clone();
 
                 spawn(async move {
                     loop {
+                        let settings = get_settings(&settings_tx).await.unwrap();
+
                         send_shock(
                             &config,
-                            *intensity.lock().await,
+                            settings.intensity,
                             config.pishock.duration,
                             &activity_tx,
                         )
@@ -269,6 +433,7 @@ pub struct PiShock {
     tx: mpsc::Sender<OscMessage>,
     rx: broadcast::Receiver<OscMessage>,
     config: Arc<Config>,
+    data_dir: PathBuf,
 }
 
 impl PiShock {
@@ -276,8 +441,14 @@ impl PiShock {
         tx: mpsc::Sender<OscMessage>,
         rx: broadcast::Receiver<OscMessage>,
         config: Arc<Config>,
+        data_dir: PathBuf,
     ) -> Self {
-        Self { tx, rx, config }
+        Self {
+            tx,
+            rx,
+            config,
+            data_dir,
+        }
     }
 
     async fn handle_buttons(&mut self) -> Result<()> {
@@ -285,25 +456,32 @@ impl PiShock {
         let (shock_tx, shock_rx) = mpsc::channel(8);
         let (modifier_tx, modifier_rx) = mpsc::channel(8);
         let (delta_tx, delta_rx) = mpsc::channel(8);
-        let intensity = Arc::new(Mutex::new(0_f32));
+        let (settings_tx, settings_rx) = mpsc::channel(8);
+
+        let mut settings_storage = SettingsStorage::new(self.data_dir.clone()).await?;
+
+        spawn(async move {
+            let _ = settings_storage.run(settings_rx).await;
+        });
 
         spawn(async move {
             let _ = handle_modifier(modifier_rx, delta_tx).await;
         });
 
-        let delta_intensity = intensity.clone();
+        let delta_settings_tx = settings_tx.clone();
         let delta_osc_tx = self.tx.clone();
 
         spawn(async move {
-            let _ = handle_delta(delta_rx, delta_intensity, delta_osc_tx).await;
+            let _ = handle_delta(delta_rx, delta_settings_tx, delta_osc_tx).await;
         });
 
-        let shock_intensity = intensity.clone();
+        let shock_settings_tx = settings_tx.clone();
         let shock_config = self.config.clone();
         let shock_activity_tx = activity_tx.clone();
 
         spawn(async move {
-            let _ = handle_shock(shock_rx, shock_intensity, shock_config, shock_activity_tx).await;
+            let _ =
+                handle_shock(shock_rx, shock_settings_tx, shock_config, shock_activity_tx).await;
         });
 
         let activity_osc_tx = self.tx.clone();
@@ -328,7 +506,26 @@ impl PiShock {
                         shock_tx.send((ShockButton::Right, value)).await?;
                     }
                     ("/avatar/parameters/PS_Intensity", &[OscType::Float(value)]) => {
-                        *intensity.lock().await = value;
+                        if let Some(new_cap) = set_intensity(&settings_tx, value).await? {
+                            let _ = self
+                                .tx
+                                .send(OscMessage {
+                                    addr: "/avatar/parameters/PS_IntensityCap".to_string(),
+                                    args: vec![OscType::Float(new_cap)],
+                                })
+                                .await;
+                        }
+                    }
+                    ("/avatar/parameters/PS_IntensityCap", &[OscType::Float(value)]) => {
+                        if let Some(new_intensity) = set_intensity_cap(&settings_tx, value).await? {
+                            let _ = self
+                                .tx
+                                .send(OscMessage {
+                                    addr: "/avatar/parameters/PS_Intensity".to_string(),
+                                    args: vec![OscType::Float(new_intensity)],
+                                })
+                                .await;
+                        }
                     }
                     ("/avatar/parameters/PS_QuickShock", &[OscType::Float(value)]) => {
                         if value >= 0. {
@@ -336,11 +533,20 @@ impl PiShock {
                         }
                     }
                     ("/avatar/change", &[OscType::String(_)]) => {
+                        let settings = get_settings(&settings_tx).await?;
+
                         let _ = self
                             .tx
                             .send(OscMessage {
                                 addr: "/avatar/parameters/PS_Intensity".to_string(),
-                                args: vec![OscType::Float(*intensity.lock().await)],
+                                args: vec![OscType::Float(settings.intensity)],
+                            })
+                            .await;
+                        let _ = self
+                            .tx
+                            .send(OscMessage {
+                                addr: "/avatar/parameters/PS_IntensityCap".to_string(),
+                                args: vec![OscType::Float(settings.intensity_cap)],
                             })
                             .await;
                     }
