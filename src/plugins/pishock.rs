@@ -529,7 +529,15 @@ impl PiShock {
                     }
                     ("/avatar/parameters/PS_QuickShock", &[OscType::Float(value)]) => {
                         if value >= 0. {
-                            send_shock(&self.config, value, 1, &activity_tx).await;
+                            let settings = get_settings(&settings_tx).await?;
+
+                            send_shock(
+                                &self.config,
+                                value.clamp(0., settings.intensity_cap),
+                                1,
+                                &activity_tx,
+                            )
+                            .await;
                         }
                     }
                     ("/avatar/change", &[OscType::String(_)]) => {
