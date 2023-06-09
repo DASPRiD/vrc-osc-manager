@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/DASPRiD/vrc-osc-manager/compare/v1.1.0...v1.1.1) (2023-06-09)
+
+
+### Bug Fixes
+
+* **pishock:** clamp quick shocks to intensity cap ([f3bbb2c](https://github.com/DASPRiD/vrc-osc-manager/commit/f3bbb2cc31d3ce3516ce715a11f7d4b71b469f06))
+
 # [1.1.0](https://github.com/DASPRiD/vrc-osc-manager/compare/v1.0.0...v1.1.0) (2023-06-04)
 
 
