@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/DASPRiD/vrc-osc-manager/compare/v1.1.1...v1.1.2) (2023-06-11)
+
+
+### Bug Fixes
+
+* **pishock:** use passed duration argument instead of config ([b1f7c60](https://github.com/DASPRiD/vrc-osc-manager/commit/b1f7c608de6e6edbf9cce3a6a7f5400e51a91ac7))
+
 ## [1.1.1](https://github.com/DASPRiD/vrc-osc-manager/compare/v1.1.0...v1.1.1) (2023-06-09)
 
 
