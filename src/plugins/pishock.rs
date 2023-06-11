@@ -306,7 +306,7 @@ async fn send_shock(
         code: config.pishock.code.clone(),
         name: "OSC Manager - PiShock Plugin".to_string(),
         op: 0,
-        duration: config.pishock.duration,
+        duration,
         intensity,
     };
 
