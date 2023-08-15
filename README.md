@@ -7,7 +7,7 @@ This is an OSC manager for handling multiple VRChat OSC plugins at once.
 ## Configuration
 
 Before you run the program, you should create a configuration file named `vrc-osc-manager.toml` in your config 
-directory. On Linux, that'd be `~/.config`, on Windows, that'd be `C:\Users\username\Application Data`. If the file does 
+directory. On Linux, that'd be `~/.config`, on Windows, that'd be `C:\Users\<username>\AppData\Roaming`. If the file does 
 not exist, the OSC Manager will create it with default values.
 
 You can find the skeleton for that config file in the `examples` folder.
