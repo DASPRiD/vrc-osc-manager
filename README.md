@@ -17,6 +17,12 @@ You can find the skeleton for that config file in the `examples` folder.
 When compiling the application, it will include all plugins by default. You can opt into only including specific plugins
 by only enabling the features you want. For a full list of features, have a look at the `Cargo.toml` file.
 
+In order to cross-compile from Linux for Windows, run the following command:
+
+```bash
+cross build --target x86_64-pc-windows-gnu --release
+```
+
 ## Usage
 
 Simply place the binary in your user autostart. It will check the process list every 20 seconds and automatically boot

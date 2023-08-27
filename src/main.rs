@@ -5,6 +5,7 @@
 
 mod config;
 mod osc;
+mod osc_query;
 mod plugins;
 mod tray;
 
@@ -23,6 +24,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use sysinfo::{ProcessRefreshKind, RefreshKind, System, SystemExt};
+use tokio::net::{TcpListener, UdpSocket};
 use tokio::select;
 use tokio::sync::{broadcast, mpsc};
 use tokio::time::sleep;
@@ -228,6 +230,16 @@ struct Args {
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+async fn get_available_tcp_port() -> Result<u16> {
+    let socket = TcpListener::bind("127.0.0.1:0").await?;
+    Ok(socket.local_addr()?.port())
+}
+
+async fn get_available_udp_port() -> Result<u16> {
+    let socket = UdpSocket::bind("127.0.0.1:0").await?;
+    Ok(socket.local_addr()?.port())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
@@ -271,7 +283,8 @@ async fn main() -> Result<()> {
     let launcher_receiver_tx = receiver_tx.clone();
 
     let send_port = config.osc.send_port;
-    let receive_port = config.osc.receive_port;
+    let receive_port = get_available_udp_port().await?;
+    let osc_query_port = get_available_tcp_port().await?;
 
     let result = Toplevel::new()
         .start("VrChatActivity", move |subsys| {
@@ -293,6 +306,9 @@ async fn main() -> Result<()> {
         })
         .start("OscReceiver", move |subsys| {
             osc::Receiver::new(receiver_tx, receive_port).run(subsys)
+        })
+        .start("OscQuery", move |subsys| {
+            osc::Query::new(osc_query_port, receive_port).run(subsys)
         })
         .catch_signals()
         .handle_shutdown_requests(Duration::from_millis(1000))

@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::osc_query::{OscAccess, OscQueryService};
 use anyhow::{bail, Context, Result};
 use async_osc::{prelude::OscMessageExt, OscMessage, OscType};
 use debounced::debounced;
@@ -490,6 +491,23 @@ impl PiShock {
             handle_activity(activity_rx, activity_osc_tx).await;
         });
 
+        let settings = get_settings(&settings_tx).await?;
+
+        let _ = self
+            .tx
+            .send(OscMessage {
+                addr: "/avatar/parameters/PS_Intensity".to_string(),
+                args: vec![OscType::Float(settings.intensity)],
+            })
+            .await;
+        let _ = self
+            .tx
+            .send(OscMessage {
+                addr: "/avatar/parameters/PS_IntensityCap".to_string(),
+                args: vec![OscType::Float(settings.intensity_cap)],
+            })
+            .await;
+
         loop {
             match self.rx.recv().await {
                 Ok(message) => match message.as_tuple() {
@@ -587,4 +605,49 @@ impl PiShock {
 
         Ok(())
     }
+}
+
+pub fn register_osc_query_parameters(service: &mut OscQueryService) {
+    service.add_endpoint(
+        "/avatar/parameters/PS_Minus_Pressed".to_string(),
+        "b".to_string(),
+        OscAccess::Write,
+        "Minus button pressed".to_string(),
+    );
+    service.add_endpoint(
+        "/avatar/parameters/PS_Plus_Pressed".to_string(),
+        "b".to_string(),
+        OscAccess::Write,
+        "Plus button pressed".to_string(),
+    );
+    service.add_endpoint(
+        "/avatar/parameters/PS_ShockLeft_Pressed".to_string(),
+        "b".to_string(),
+        OscAccess::Write,
+        "Left shock button pressed".to_string(),
+    );
+    service.add_endpoint(
+        "/avatar/parameters/PS_ShockRight_Pressed".to_string(),
+        "b".to_string(),
+        OscAccess::Write,
+        "Right shock button pressed".to_string(),
+    );
+    service.add_endpoint(
+        "/avatar/parameters/PS_Intensity".to_string(),
+        "d".to_string(),
+        OscAccess::ReadWrite,
+        "Shock intensity".to_string(),
+    );
+    service.add_endpoint(
+        "/avatar/parameters/PS_IntensityCap".to_string(),
+        "d".to_string(),
+        OscAccess::ReadWrite,
+        "Shock intensity cap".to_string(),
+    );
+    service.add_endpoint(
+        "/avatar/parameters/PS_QuickShock".to_string(),
+        "d".to_string(),
+        OscAccess::ReadWrite,
+        "Quick shock".to_string(),
+    );
 }

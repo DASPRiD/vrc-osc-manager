@@ -1,5 +1,13 @@
+use crate::osc_query::{MakeOscQueryStatic, OscAccess, OscHostInfo, OscQueryService};
+use crate::plugins;
 use anyhow::{bail, Result};
 use async_osc::{OscMessage, OscPacket, OscSocket};
+use hyper::Server;
+use log::info;
+use searchlight::broadcast::{BroadcasterBuilder, ServiceBuilder};
+use searchlight::net::IpVersion;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::str::FromStr;
 use tokio::sync::{broadcast, mpsc};
 use tokio_graceful_shutdown::{errors::CancelledByShutdown, FutureExt, SubsystemHandle};
 use tokio_stream::StreamExt;
@@ -49,6 +57,7 @@ impl Receiver {
 
     async fn receive(&mut self) -> Result<()> {
         let mut socket = OscSocket::bind(("127.0.0.1", self.port)).await?;
+        info!("OSC running on UDP port {}", self.port);
 
         while let Some(packet) = socket.next().await {
             let (packet, _) = packet?;
@@ -66,6 +75,67 @@ impl Receiver {
 
     pub async fn run(mut self, subsys: SubsystemHandle) -> Result<()> {
         match (self.receive().cancel_on_shutdown(&subsys)).await {
+            Ok(Ok(())) => subsys.request_shutdown(),
+            Ok(Err(error)) => return Err(error),
+            Err(CancelledByShutdown) => {}
+        }
+
+        Ok(())
+    }
+}
+
+pub struct Query {
+    tcp_port: u16,
+    udp_port: u16,
+}
+
+impl Query {
+    pub fn new(tcp_port: u16, udp_port: u16) -> Self {
+        Self { tcp_port, udp_port }
+    }
+
+    async fn listen(self) -> Result<()> {
+        let _broadcaster = BroadcasterBuilder::new()
+            .loopback()
+            .add_service(
+                ServiceBuilder::new("_oscjson._tcp.local.", "VRC-OSC-Manager", self.tcp_port)?
+                    .add_ip_address(IpAddr::V4(Ipv4Addr::from_str("127.0.0.1")?))
+                    .build()?,
+            )
+            .add_service(
+                ServiceBuilder::new("_osc._udp.local.", "VRC-OSC-Manager", self.udp_port)?
+                    .add_ip_address(IpAddr::V4(Ipv4Addr::from_str("127.0.0.1")?))
+                    .build()?,
+            )
+            .build(IpVersion::V4)?
+            .run_in_background();
+
+        let mut osc_query_service = OscQueryService::new(OscHostInfo::new(
+            "VRC OSC Manager".to_string(),
+            "127.0.0.1".to_string(),
+            self.udp_port,
+        ));
+        osc_query_service.add_endpoint(
+            "/avatar/change".to_string(),
+            "s".to_string(),
+            OscAccess::Read,
+            "".to_string(),
+        );
+
+        #[cfg(feature = "pishock")]
+        plugins::pishock::register_osc_query_parameters(&mut osc_query_service);
+
+        info!("OSCQuery running on TCP port {}", self.tcp_port);
+
+        let addr = SocketAddr::from(([127, 0, 0, 1], self.tcp_port));
+        let server = Server::bind(&addr).serve(MakeOscQueryStatic::new(osc_query_service));
+        server.await?;
+
+        Ok(())
+    }
+
+    pub async fn run(self, subsys: SubsystemHandle) -> Result<()> {
+        match (self.listen().cancel_on_shutdown(&subsys)).await {
             Ok(Ok(())) => subsys.request_shutdown(),
             Ok(Err(error)) => return Err(error),
             Err(CancelledByShutdown) => {}

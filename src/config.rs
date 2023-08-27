@@ -8,15 +8,11 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 #[serde(default)]
 pub struct OscConfig {
     pub send_port: u16,
-    pub receive_port: u16,
 }
 
 impl Default for OscConfig {
     fn default() -> Self {
-        Self {
-            send_port: 9000,
-            receive_port: 9001,
-        }
+        Self { send_port: 9000 }
     }
 }
 
