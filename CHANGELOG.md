@@ -1,3 +1,15 @@
+# [2.0.0](https://github.com/DASPRiD/vrc-osc-manager/compare/v1.1.2...v2.0.0) (2023-08-27)
+
+
+### Features
+
+* add OSC Query support ([7a253e8](https://github.com/DASPRiD/vrc-osc-manager/commit/7a253e834c1cdeba2bfa138e757c6e036fe470e0))
+
+
+### BREAKING CHANGES
+
+* Will not work with older VRChat versions which do not support OSC query.
+
 ## [1.1.2](https://github.com/DASPRiD/vrc-osc-manager/compare/v1.1.1...v1.1.2) (2023-06-11)
 
 

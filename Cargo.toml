@@ -1,7 +1,7 @@
 [package]
 name = "vrc-osc-manager"
 description = "OSC client for managing VRChat accessories"
-version = "1.1.2"
+version = "2.0.0"
 edition = "2021"
 authors = ["Ben Scholzen (DASPRiD) <mail@dasprids.de>"]
 readme = "README.md"
