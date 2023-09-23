@@ -1,3 +1,11 @@
+# [2.1.0](https://github.com/DASPRiD/vrc-osc-manager/compare/v2.0.0...v2.1.0) (2023-09-23)
+
+
+### Features
+
+* **log:** use line limit instead of hourly limit ([51c575f](https://github.com/DASPRiD/vrc-osc-manager/commit/51c575f5ca834f8fad46b3a2fd71feedbf418ce5))
+* **pishock:** allow configuring multiple codes ([16d0d22](https://github.com/DASPRiD/vrc-osc-manager/commit/16d0d22bb0cb0a4383312facbb34ed8637878934))
+
 # [2.0.0](https://github.com/DASPRiD/vrc-osc-manager/compare/v1.1.2...v2.0.0) (2023-08-27)
 
 
