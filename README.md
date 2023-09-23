@@ -86,6 +86,7 @@ VRChat parameters:
 | `PS_ShockActive`        | `bool`  | Set to true while a shock is active, then automatically reset to false.                           |
 
 You can configure the duration (default 4) through the configuration file. You must also set your credentials in there.
+The configuration allows you to configure one or more codes to be triggered for each shock.
 
 The intensity and intensity cap are periodically saved after 10 seconds of being changed. When an avatar loads in, it
 will automatically be populated with the last values.

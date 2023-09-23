@@ -5,6 +5,6 @@ receive_port = 9001
 [pishock]
 username = ""
 api_key = ""
-code = ""
+codes = [""]
 duration = 4
 intensity_cap = 1.0
