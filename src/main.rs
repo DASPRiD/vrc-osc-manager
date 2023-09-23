@@ -17,7 +17,7 @@ use clap::Parser;
 use directories::BaseDirs;
 use file_rotate::compression::Compression;
 use file_rotate::suffix::{AppendTimestamp, FileLimit};
-use file_rotate::{ContentLimit, FileRotate, TimeFrequency};
+use file_rotate::{ContentLimit, FileRotate};
 use log::{debug, error, info, LevelFilter};
 use simplelog::{ColorChoice, CombinedLogger, TermLogger, TerminalMode, WriteLogger};
 use std::path::PathBuf;

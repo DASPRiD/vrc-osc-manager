@@ -1,9 +1,9 @@
 use crate::config::Config;
 use crate::osc_query::{OscAccess, OscQueryService};
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use async_osc::{prelude::OscMessageExt, OscMessage, OscType};
 use debounced::debounced;
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -12,6 +12,7 @@ use tokio::fs::{metadata, File};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio::task::JoinSet;
 use tokio::time::sleep;
 use tokio::{select, spawn};
 use tokio_graceful_shutdown::{errors::CancelledByShutdown, FutureExt, SubsystemHandle};
@@ -287,24 +288,19 @@ struct ShockBody {
     intensity: u8,
 }
 
-async fn send_shock(
-    config: &Arc<Config>,
-    intensity: f32,
-    duration: u8,
-    activity_tx: &mpsc::Sender<u8>,
-) {
+async fn send_shock(config: Arc<Config>, code: String, intensity: f32, duration: u8) -> Result<()> {
     let intensity = 1 + (99. * intensity) as u8;
     let duration = duration.clamp(1, 15);
 
     info!(
-        "Sending shock with intensity {} and duration {}",
-        intensity, duration
+        "Sending shock to {} with intensity {} and duration {}",
+        code, intensity, duration
     );
 
     let body = ShockBody {
         username: config.pishock.username.clone(),
         api_key: config.pishock.api_key.clone(),
-        code: config.pishock.code.clone(),
+        code,
         name: "OSC Manager - PiShock Plugin".to_string(),
         op: 0,
         duration,
@@ -324,21 +320,68 @@ async fn send_shock(
 
             match status {
                 Ok(status) => match status.as_str() {
-                    "Not Authorized." => warn!("Invalid credentials"),
-                    "Operation Succeeded." => {
-                        debug!("Shock succeeded");
-                        let _ = activity_tx.send(duration).await;
-                    }
-                    _ => warn!("Unknown response: {}", status),
+                    "Not Authorized." => Err(anyhow!("Invalid credentials")),
+                    "Operation Succeeded." => Ok(()),
+                    "Operation Attempted." => Ok(()),
+                    _ => Err(anyhow!("Unknown response: {}", status)),
                 },
-                Err(_) => {
-                    warn!("Failed to parse response");
-                }
+                Err(_) => Err(anyhow!("Failed to parse response")),
             }
         }
-        Err(_) => {
-            warn!("Failed to contact pishock API");
+        Err(_) => Err(anyhow!("Failed to contact pishock API")),
+    }
+}
+
+async fn send_shocks(
+    config: &Arc<Config>,
+    intensity: f32,
+    duration: u8,
+    activity_tx: &mpsc::Sender<u8>,
+) {
+    let codes = if let Some(codes) = config.pishock.codes.clone() {
+        codes
+    } else if let Some(code) = config.pishock.code.clone() {
+        vec![code]
+    } else {
+        warn!("Neither single nor multiple codes configured");
+        return;
+    };
+
+    if codes.is_empty() {
+        warn!("No codes configured");
+        return;
+    }
+
+    let mut set = JoinSet::new();
+
+    for code in codes {
+        set.spawn(send_shock(
+            config.clone(),
+            code.clone(),
+            intensity,
+            duration,
+        ));
+    }
+
+    let mut succeeded = false;
+
+    while let Some(res) = set.join_next().await {
+        match res {
+            Ok(Ok(())) => {
+                debug!("Shock succeeded");
+                succeeded = true;
+            }
+            Ok(Err(error)) => {
+                warn!("{}", error);
+            }
+            Err(error) => {
+                error!("{}", error);
+            }
         }
+    }
+
+    if succeeded {
+        let _ = activity_tx.send(duration).await;
     }
 }
 
@@ -370,7 +413,7 @@ async fn handle_shock(
                     loop {
                         let settings = get_settings(&settings_tx).await.unwrap();
 
-                        send_shock(
+                        send_shocks(
                             &config,
                             settings.intensity,
                             config.pishock.duration,
@@ -549,7 +592,7 @@ impl PiShock {
                         if value >= 0. {
                             let settings = get_settings(&settings_tx).await?;
 
-                            send_shock(
+                            send_shocks(
                                 &self.config,
                                 value.clamp(0., settings.intensity_cap),
                                 1,

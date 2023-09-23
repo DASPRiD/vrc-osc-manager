@@ -22,7 +22,8 @@ impl Default for OscConfig {
 pub struct PiShockConfig {
     pub username: String,
     pub api_key: String,
-    pub code: String,
+    pub code: Option<String>,
+    pub codes: Option<Vec<String>>,
     pub duration: u8,
 }
 
@@ -31,7 +32,8 @@ impl Default for PiShockConfig {
         Self {
             username: "".to_string(),
             api_key: "".to_string(),
-            code: "".to_string(),
+            code: None,
+            codes: Some(vec!["".to_string()]),
             duration: 4,
         }
     }
