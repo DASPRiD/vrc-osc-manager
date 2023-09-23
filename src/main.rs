@@ -251,7 +251,7 @@ async fn main() -> Result<()> {
     let log_file = FileRotate::new(
         log_dir,
         AppendTimestamp::default(FileLimit::MaxFiles(12)),
-        ContentLimit::Time(TimeFrequency::Hourly),
+        ContentLimit::Lines(1024),
         Compression::None,
         #[cfg(unix)]
         None,
