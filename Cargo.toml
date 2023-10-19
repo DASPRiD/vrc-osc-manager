@@ -36,10 +36,10 @@ image = "0.24.6"
 embed-resource = "2.1.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-tray-item = { git = "https://github.com/olback/tray-item-rs", rev = "92d0310", features = ["ksni"] }
+tray-item = { version = "0.9.0", features = ["ksni"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-tray-item = { git = "https://github.com/olback/tray-item-rs", rev = "92d0310" }
+tray-item = { version = "0.9.0" }
 
 [features]
 default = ["pishock", "watch"]
