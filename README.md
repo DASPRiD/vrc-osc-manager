@@ -51,7 +51,7 @@ Please note that on Windows oyu will not see any debug output on the console wit
 
 Log files can be found on Linux under `~/.local/share/vrc-osc-manager\logs`. On Windows they should be located under
 `C:\Users\username\Application Data\vrc-osc-manager\logs`. The latest log file is always called `log`, while older
-ones are suffixed with a timestamp. Log files are rotated every hour and a maximum of 12 log files is every kept.
+ones are suffixed with a timestamp.
 
 ## Dark mode
 
@@ -63,6 +63,16 @@ to icons for dark mode by passing `--dark-mode-icons` as command line argument.
 Both Linux and Windows are supported, though Linux is the primarily tested platform.
 
 ## Plugins
+
+### Media Control
+
+This plugin allows you to control your local media player from VRChat without relying on overlays. All you need is to
+set up is a menu within your avatar with buttons controlling the following booleans:
+
+- `MC_PrevTrack`
+- `MC_NextTrack`
+- `MC_PlayPause`
+- `MC_Stop`
 
 ### Watch
 

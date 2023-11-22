@@ -90,6 +90,14 @@ async fn run_plugins(
     receiver_tx: broadcast::Sender<OscMessage>,
     sender_tx: mpsc::Sender<OscMessage>,
 ) -> Result<()> {
+    #[cfg(feature = "media-control")]
+    {
+        let receiver_rx = receiver_tx.subscribe();
+        subsys.start("PluginMediaControl", |subsys| {
+            plugins::media_control::MediaControl::new(receiver_rx).run(subsys)
+        });
+    }
+
     #[cfg(feature = "watch")]
     {
         let sender_tx = sender_tx.clone();

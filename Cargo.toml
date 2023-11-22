@@ -19,6 +19,7 @@ file-rotate = "0.7.4"
 hyper = { version = "0.14.27", features = ["http1", "server"] }
 log = "0.4.17"
 reqwest = { version = "0.11.17", features = ["default", "json"], optional = true }
+enigo = { version = "0.2.0-rc2", optional = true }
 searchlight = "0.3.1"
 serde = { version = "1.0.163", features = ["derive"] }
 serde_json = "1.0.105"
@@ -42,6 +43,7 @@ tray-item = { version = "0.9.0", features = ["ksni"] }
 tray-item = { version = "0.9.0" }
 
 [features]
-default = ["pishock", "watch"]
+default = ["media-control", "pishock", "watch"]
+media-control = ["dep:enigo"]
 pishock = ["dep:reqwest"]
 watch = []

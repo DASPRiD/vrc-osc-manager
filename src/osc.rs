@@ -122,6 +122,9 @@ impl Query {
             "".to_string(),
         );
 
+        #[cfg(feature = "media-control")]
+        plugins::media_control::register_osc_query_parameters(&mut osc_query_service);
+
         #[cfg(feature = "pishock")]
         plugins::pishock::register_osc_query_parameters(&mut osc_query_service);
 
