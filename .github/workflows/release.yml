@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
-      - run: sudo apt-get install libdbus-1-dev libssl-dev
+      - run: sudo apt-get install libdbus-1-dev libssl-dev libxdo-dev
       - run: cargo check
 
   fmt:
@@ -27,7 +27,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - run: sudo apt-get install libdbus-1-dev libssl-dev
+      - run: sudo apt-get install libdbus-1-dev libssl-dev libxdo-dev
       - run: cargo fmt --all -- --check
 
   clippy:
@@ -38,7 +38,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - run: sudo apt-get install libdbus-1-dev libssl-dev
+      - run: sudo apt-get install libdbus-1-dev libssl-dev libxdo-dev
       - run: cargo clippy -- -D warnings
 
   release:
@@ -57,7 +57,7 @@ jobs:
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
 
-      - run: sudo apt-get install libdbus-1-dev libssl-dev
+      - run: sudo apt-get install libdbus-1-dev libssl-dev libxdo-dev
 
       - name: Semantic Release
         uses: cycjimmy/semantic-release-action@v3
