@@ -1,3 +1,10 @@
+# [2.2.0](https://github.com/DASPRiD/vrc-osc-manager/compare/v2.1.0...v2.2.0) (2023-11-22)
+
+
+### Features
+
+* add media_control plugin ([35bf42f](https://github.com/DASPRiD/vrc-osc-manager/commit/35bf42ff14175a773c2d02bb1a705d3b59ec7c0d))
+
 # [2.1.0](https://github.com/DASPRiD/vrc-osc-manager/compare/v2.0.0...v2.1.0) (2023-09-23)
 
 
