@@ -7,9 +7,11 @@ plugins:
   - '@semantic-release/changelog'
   - - '@semantic-release/github'
     - assets:
-        - path: release-artifacts/vrc-osc-manager
+        - path: release-artifacts/linux-x64-binary
+          name: vrc-osc-manager
           label: Linux x64 binary
-        - path: release-artifacts/vrc-osc-manager.exe
+        - path: release-artifacts/windows-x64-binary
+          name: vrc-osc-manager.exe
           label: Windows x64 binary
   - - '@semantic-release/git'
     - assets:

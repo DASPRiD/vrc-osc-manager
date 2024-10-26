@@ -114,7 +114,7 @@ jobs:
             ./target/x86_64-pc-windows-gnu/release/vrc-osc-manager.exe
 
   semantic-release:
-    needs: [ build ]
+    needs: [ check-release, build ]
     if: needs.check-release.outputs.new_release_published == 'true'
     runs-on: ubuntu-latest
 
