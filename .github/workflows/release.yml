@@ -99,21 +99,19 @@ jobs:
         run: |
           if [ "${{ matrix.target }}" == "linux-x64" ]; then
             cargo build --release --target x86_64-unknown-linux-gnu
-            cp target/x86_64-unknown-linux-gnu/release/vrc-osc-manager ./vrc-osc-manager
           else
             cargo install cross --git https://github.com/rust-embedded/cross
             cross build --release --target x86_64-pc-windows-gnu
-            cp target/x86_64-pc-windows-gnu/release/vrc-osc-manager.exe ./vrc-osc-manager.exe
           fi
         shell: bash
 
       - name: Upload Binary Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}-binary
           path: |
-            ./vrc-osc-manager
-            ./vrc-osc-manager.exe
+            ./target/x86_64-unknown-linux-gnu/release/vrc-osc-manager
+            ./target/x86_64-pc-windows-gnu/release/vrc-osc-manager.exe
 
   semantic-release:
     needs: [ build ]
@@ -132,14 +130,7 @@ jobs:
       - name: Download Binaries
         uses: actions/download-artifact@v4
         with:
-          name: vrc-osc-manager
-          path: ./release-artifacts/
-
-      - name: Download Windows Binary
-        uses: actions/download-artifact@v4
-        with:
-          name: vrc-osc-manager.exe
-          path: ./release-artifacts/
+          path: release-artifacts
 
       - name: Update version
         run: |
