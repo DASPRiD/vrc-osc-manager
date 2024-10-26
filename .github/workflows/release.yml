@@ -144,8 +144,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         id: semantic
         with:
+          semantic_version: 24.2.0
           extra_plugins: |
-            @semantic-release/changelog@6.0
-            @semantic-release/exec@6.0
-            @semantic-release/git@10.0
-            @semantic-release/github@6.0
+            @semantic-release/changelog@^6
+            @semantic-release/git@^10
+            @semantic-release/github@^11
