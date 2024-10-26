@@ -132,13 +132,13 @@ jobs:
       - name: Download Binaries
         uses: actions/download-artifact@v4
         with:
-          name: linux-x64-binary
+          name: vrc-osc-manager
           path: ./release-artifacts/
 
       - name: Download Windows Binary
         uses: actions/download-artifact@v4
         with:
-          name: windows-x64-binary
+          name: vrc-osc-manager.exe
           path: ./release-artifacts/
 
       - name: Update version
