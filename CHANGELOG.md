@@ -1,3 +1,20 @@
+# [3.0.0](https://github.com/DASPRiD/vrc-osc-manager/compare/v2.2.0...v3.0.0) (2024-10-26)
+
+
+### Bug Fixes
+
+* **windows:** use concrete types in platform ([815c9a3](https://github.com/DASPRiD/vrc-osc-manager/commit/815c9a34f4c603e64505111d6ede9cfe9dddc68c))
+
+
+### Features
+
+* rewrite application with UI support ([0b00a98](https://github.com/DASPRiD/vrc-osc-manager/commit/0b00a982f6b26fc880b299a4cd8e4f864d72634f))
+
+
+### BREAKING CHANGES
+
+* Old configs will not work anymore after this.
+
 # [2.2.0](https://github.com/DASPRiD/vrc-osc-manager/compare/v2.1.0...v2.2.0) (2023-11-22)
 
 
