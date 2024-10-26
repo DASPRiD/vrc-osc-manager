@@ -1,4 +1,5 @@
 use crate::platform::Platform;
+use anyhow::Context;
 use std::env;
 use std::path::Path;
 use tokio::process::Command;
@@ -18,7 +19,7 @@ impl Platform for WindowsPlatform {
         let path = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 
         if let Ok(key) = hkcu.open_subkey(path) {
-            key.get_value("vrc-osc-manager").is_ok()
+            key.get_value::<String, _>("vrc-osc-manager").is_ok()
         } else {
             false
         }
@@ -34,7 +35,7 @@ impl Platform for WindowsPlatform {
             .to_string();
 
         let (key, _) = hkcu.create_subkey(path)?;
-        key.set_value("vrc-osc-manager", exec_path)?;
+        key.set_value("vrc-osc-manager", &exec_path)?;
 
         Ok(())
     }
