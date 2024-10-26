@@ -104,6 +104,7 @@ jobs:
             cargo install cross --git https://github.com/rust-embedded/cross
             cross build --release --target x86_64-pc-windows-gnu
             cp target/x86_64-pc-windows-gnu/release/vrc-osc-manager.exe ./vrc-osc-manager.exe
+          fi
         shell: bash
 
       - name: Upload Binary Artifact
