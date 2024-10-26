@@ -189,11 +189,7 @@ impl ContinuousShockSender {
 #[async_trait]
 impl IntoSubsystem<Infallible> for ContinuousShockSender {
     async fn run(mut self, subsys: SubsystemHandle) -> Result<(), Infallible> {
-        match self.main_loop().cancel_on_shutdown(&subsys).await {
-            Ok(()) => {}
-            Err(CancelledByShutdown) => {}
-        }
-
+        let _ = self.main_loop().cancel_on_shutdown(&subsys).await;
         Ok(())
     }
 }
@@ -265,11 +261,7 @@ impl IntensityModifier {
 #[async_trait]
 impl IntoSubsystem<Infallible> for IntensityModifier {
     async fn run(mut self, subsys: SubsystemHandle) -> Result<(), Infallible> {
-        match self.main_loop().cancel_on_shutdown(&subsys).await {
-            Ok(()) => {}
-            Err(CancelledByShutdown) => {}
-        }
-
+        let _ = self.main_loop().cancel_on_shutdown(&subsys).await;
         Ok(())
     }
 }
@@ -328,11 +320,7 @@ impl ActivityMonitor {
 #[async_trait]
 impl IntoSubsystem<Infallible> for ActivityMonitor {
     async fn run(mut self, subsys: SubsystemHandle) -> Result<(), Infallible> {
-        match self.main_loop().cancel_on_shutdown(&subsys).await {
-            Ok(()) => {}
-            Err(CancelledByShutdown) => {}
-        }
-
+        let _ = self.main_loop().cancel_on_shutdown(&subsys).await;
         Ok(())
     }
 }
