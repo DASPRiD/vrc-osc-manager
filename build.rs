@@ -1,6 +1,6 @@
 use image::Rgba;
+use slint_build::CompilerConfiguration;
 use std::{env, fs, path::Path};
-extern crate embed_resource;
 
 const DARK_INACTIVE_PNG_ICON: &[u8] = include_bytes!("assets/icon-dark-inactive.png");
 const DARK_ACTIVE_PNG_ICON: &[u8] = include_bytes!("assets/icon-dark-active.png");
@@ -19,6 +19,12 @@ fn convert(img: &[u8]) -> Result<Vec<u8>, image::ImageError> {
 }
 
 fn main() {
+    slint_build::compile_with_config(
+        "ui/main.slint",
+        CompilerConfiguration::new().with_style("fluent-dark".to_string()),
+    )
+    .unwrap();
+
     if env::var_os("CARGO_CFG_TARGET_OS").unwrap() == "linux" {
         let out_dir = &env::var_os("OUT_DIR").unwrap();
         let out_path = Path::new(out_dir);

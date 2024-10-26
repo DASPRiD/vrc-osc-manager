@@ -41,11 +41,15 @@ jobs:
       - run: sudo apt-get install libdbus-1-dev libssl-dev libxdo-dev
       - run: cargo clippy -- -D warnings
 
-  release:
-    needs: [check, fmt, clippy]
-    name: Semantic Release
+  check-release:
+    needs: [ check, fmt, clippy ]
+    name: Check Release
     runs-on: ubuntu-latest
     if: github.actor != 'sbosnick-bot'
+
+    outputs:
+      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
 
     steps:
       - name: Checkout
@@ -54,13 +58,89 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Semantic Release
+        uses: cycjimmy/semantic-release-action@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        id: semantic
+        with:
+          dry_run: true
+
+  build:
+    needs: [ check-release ]
+    if: needs.check-release.outputs.new_release_published == 'true'
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        target: [ linux-x64, windows-x64 ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
 
       - run: sudo apt-get install libdbus-1-dev libssl-dev libxdo-dev
 
+      - name: Update version
+        run: |
+          sed -i '/\[package\]/,/^version = "[^"]*"$/ s/^version = "[^"]*"$/version = "'"${{ needs.check-release.outputs.new_release_version }}"'"/' Cargo.toml
+          cargo update --package vrc-osc-manager
+        shell: bash
+
+      - name: Build Binary
+        run: |
+          if [ "${{ matrix.target }}" == "linux-x64" ]; then
+            cargo build --release --target x86_64-unknown-linux-gnu
+            cp target/x86_64-unknown-linux-gnu/release/vrc-osc-manager ./vrc-osc-manager
+          else
+            cargo install cross --git https://github.com/rust-embedded/cross
+            cross build --release --target x86_64-pc-windows-gnu
+            cp target/x86_64-pc-windows-gnu/release/vrc-osc-manager.exe ./vrc-osc-manager.exe
+        shell: bash
+
+      - name: Upload Binary Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.target }}-binary
+          path: |
+            ./vrc-osc-manager
+            ./vrc-osc-manager.exe
+
+  semantic-release:
+    needs: [ build ]
+    if: needs.check-release.outputs.new_release_published == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Download Binaries
+        uses: actions/download-artifact@v3
+        with:
+          name: linux-x64-binary
+          path: ./release-artifacts/
+
+      - name: Download Windows Binary
+        uses: actions/download-artifact@v3
+        with:
+          name: windows-x64-binary
+          path: ./release-artifacts/
+
+      - name: Update version
+        run: |
+          sed -i '/\[package\]/,/^version = "[^"]*"$/ s/^version = "[^"]*"$/version = "'"${{ needs.check-release.outputs.new_release_version }}"'"/' Cargo.toml
+          cargo update --package vrc-osc-manager
+        shell: bash
+
       - name: Semantic Release
-        uses: cycjimmy/semantic-release-action@v3
+        uses: cycjimmy/semantic-release-action@v4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         id: semantic
@@ -69,3 +149,4 @@ jobs:
             @semantic-release/changelog@6.0
             @semantic-release/exec@6.0
             @semantic-release/git@10.0
+            @semantic-release/github@6.0

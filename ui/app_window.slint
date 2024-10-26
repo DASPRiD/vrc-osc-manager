@@ -1,0 +1,42 @@
+import { Button, VerticalBox, Palette, TabWidget } from "std-widgets.slint";
+import { TabBar } from "tab_bar.slint";
+import { PluginsPage } from "pages/plugins.slint";
+import { SettingsPage } from "pages/settings.slint";
+import { Icons } from "widgets/styling.slint";
+import { PishockSettingsOverlay } from "plugins/pishock.slint";
+
+export global Router {
+    in property <string> settings-page: "";
+}
+
+export component AppWindow inherits Window {
+    title: "VRC OSC Manager";
+    preferred-width: 800px;
+    preferred-height: 600px;
+    min-width: 800px;
+    min-height: 600px;
+    icon: @image-url("../assets/icon-dark-active.png");
+
+    Rectangle {
+        background: Palette.background;
+
+        // Temporarily we have to handle settings pages here.
+        // In the future we might be able to inject them from the plugins themselves.
+        if Router.settings-page == "pishock": PishockSettingsOverlay { }
+
+        VerticalLayout {
+            alignment: stretch;
+
+            tab-bar := TabBar {
+                tabs: ["Plugins", "Settings"];
+            }
+
+            Rectangle {
+                vertical-stretch: 1;
+
+                if (tab-bar.current-item == 0): PluginsPage { }
+                if (tab-bar.current-item == 1): SettingsPage { }
+            }
+        }
+    }
+}

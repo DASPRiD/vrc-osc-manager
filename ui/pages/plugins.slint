@@ -1,0 +1,114 @@
+import { CheckBox, HorizontalBox, VerticalBox, Palette, ScrollView, Button } from "std-widgets.slint";
+import { Icons } from "../widgets/styling.slint";
+
+export struct PluginItem {
+    id: string,
+    title: string,
+    description: string,
+    enabled: bool,
+    has-settings: bool,
+    info-url: string,
+}
+
+export global PluginItems {
+    in property <[PluginItem]> items: [
+        {
+            id: "foo",
+            title: "Foo",
+            description: "Foobar",
+            enabled: false,
+            has-settings: false,
+            info-url: ""
+        }
+    ];
+
+    callback toggle-enabled(string, bool);
+    callback open-settings(string);
+    callback open-url(string);
+}
+
+component PluginCard inherits Rectangle {
+    in-out property <PluginItem> item;
+
+    callback toggle-enabled(bool);
+    callback open-settings();
+    callback open-info-url();
+
+    Rectangle {
+        background: Palette.background.brighter(0.5);
+
+        HorizontalLayout {
+            padding: 16px;
+            spacing: 16px;
+
+            VerticalLayout {
+                alignment: start;
+                horizontal-stretch: 0;
+
+                CheckBox {
+                    checked: root.item.enabled;
+                    toggled => {
+                        root.toggle-enabled(self.checked);
+                    }
+                }
+            }
+
+            VerticalLayout {
+                alignment: start;
+                horizontal-stretch: 1;
+                spacing: 8px;
+                Text {
+                    text: root.item.title;
+                    font-weight: 800;
+                }
+
+                Text {
+                    wrap: word-wrap;
+                    text: root.item.description;
+                }
+            }
+
+            if root.item.info-url != "": VerticalLayout {
+                alignment: start;
+
+                Button {
+                    icon: Icons.info;
+                    clicked => {
+                        root.open-info-url();
+                    }
+                }
+            }
+
+            if root.item.has-settings: VerticalLayout {
+                alignment: start;
+
+                Button {
+                    icon: Icons.settings;
+                    clicked => {
+                        root.open-settings();
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component PluginsPage inherits ScrollView {
+    VerticalBox {
+        alignment: start;
+
+        for item in PluginItems.items: PluginCard {
+            item: item;
+
+            toggle-enabled(enabled) => {
+                PluginItems.toggle-enabled(item.id, enabled);
+            }
+            open-settings => {
+                PluginItems.open-settings(item.id);
+            }
+            open-info-url => {
+                PluginItems.open-url(item.info-url);
+            }
+        }
+    }
+}

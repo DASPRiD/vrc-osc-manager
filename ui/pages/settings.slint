@@ -1,0 +1,61 @@
+import { VerticalBox, ScrollView, Switch, Button, ComboBox } from "std-widgets.slint";
+import { FormGroup } from "../widgets/form_group.slint";
+
+export global Settings {
+    in-out property <string> tray-icons;
+    in-out property <bool> auto-start;
+
+    callback toggle-tray-icons(string);
+    callback toggle-auto-start(bool);
+    callback open-logs-folder();
+    callback start-plugins();
+}
+
+export component SettingsPage inherits ScrollView {
+    VerticalBox {
+        padding: 16px;
+        alignment: start;
+
+        FormGroup {
+            label: "Tray icons";
+
+            ComboBox {
+                width: 200px;
+                model: ["Auto detect", "Light", "Dark"];
+                current-value <=> Settings.tray-icons;
+                selected => {
+                    Settings.toggle-tray-icons(self.current-value)
+                }
+            }
+        }
+
+        Switch {
+            text: "Autostart";
+            checked <=> Settings.auto-start;
+            toggled => {
+                Settings.toggle-auto-start(self.checked)
+            }
+        }
+
+        VerticalLayout {
+            padding-top: 16px;
+            spacing: 8px;
+
+            Button {
+                width: 200px;
+                text: "Open logs folder";
+                clicked => {
+                    Settings.open-logs-folder()
+                }
+            }
+
+            Button {
+                width: 200px;
+                text: "Start plugins";
+                clicked => {
+                    Settings.start-plugins()
+                }
+            }
+        }
+    }
+}

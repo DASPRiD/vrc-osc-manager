@@ -8,42 +8,45 @@ readme = "README.md"
 license-file = "LICENSE"
 
 [dependencies]
-anyhow = "1.0.70"
+anyhow = "1.0.82"
 async-osc = "0.2.0"
 cfg-if = "1.0.0"
-chrono = "0.4.24"
-clap = { version = "4.1.4", features = ["derive"] }
-debounced = "0.1.0"
+chrono = "0.4.38"
+clap = { version = "4.5.4", features = ["derive"] }
 directories = "5.0.1"
-file-rotate = "0.7.4"
-hyper = { version = "0.14.27", features = ["http1", "server"] }
-log = "0.4.17"
-reqwest = { version = "0.11.17", features = ["default", "json"], optional = true }
-enigo = { version = "0.2.0-rc2", optional = true }
-searchlight = "0.3.1"
-serde = { version = "1.0.163", features = ["derive"] }
-serde_json = "1.0.105"
-serde_repr = "0.1.16"
-simplelog = "0.12.1"
-sysinfo = "0.29.0"
-tokio = { version = "1.27.0", features = ["full"] }
-tokio-graceful-shutdown = "0.12.1"
-tokio-stream = "0.1.14"
-tokio-util = "0.7.8"
-toml = "0.7.3"
+file-rotate = "0.7.5"
+hyper = { version = "0.14.28", features = ["http1", "server", "tcp"] }
+log = "0.4.21"
+reqwest = { version = "0.12.3", features = ["default", "json"] }
+enigo = { version = "0.2.0-rc2" }
+searchlight = "0.3.2"
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.116"
+serde_repr = "0.1.19"
+simplelog = "0.12.2"
+sysinfo = "0.30.10"
+tokio = { version = "1.37.0", features = ["full"] }
+tokio-graceful-shutdown = "0.15.0"
+tokio-stream = "0.1.15"
+tokio-util = "0.7.10"
+toml = "0.8.12"
+slint = { version = "1.8.0" }
+axum = "0.7.7"
+tower = "0.5.1"
+async-trait = "0.1.83"
+dark-light = "1.1.1"
+flexi_logger = "0.29.3"
+open = "5.3.0"
+indoc = "2.0.5"
 
 [build-dependencies]
-image = "0.24.6"
-embed-resource = "2.1.1"
+image = "0.24.9"
+embed-resource = "2.4.2"
+slint-build = "1.8.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-tray-item = { version = "0.9.0", features = ["ksni"] }
+tray-item = { version = "0.10.0", features = ["ksni"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-tray-item = { version = "0.9.0" }
-
-[features]
-default = ["media-control", "pishock", "watch"]
-media-control = ["dep:enigo"]
-pishock = ["dep:reqwest"]
-watch = []
+tray-item = { version = "0.10.0" }
+winreg = "0.52.0"

@@ -2,15 +2,7 @@
 
 [![Release](https://github.com/DASPRiD/vrc-osc-manager/actions/workflows/release.yml/badge.svg)](https://github.com/DASPRiD/vrc-osc-manager/actions/workflows/release.yml)
 
-This is an OSC manager for handling multiple VRChat OSC plugins at once. 
-
-## Configuration
-
-Before you run the program, you should create a configuration file named `vrc-osc-manager.toml` in your config 
-directory. On Linux, that'd be `~/.config`, on Windows, that'd be `C:\Users\<username>\AppData\Roaming`. If the file does 
-not exist, the OSC Manager will create it with default values.
-
-You can find the skeleton for that config file in the `examples` folder.
+This is an OSC manager for handling multiple VRChat OSC plugins at once.
 
 ## Compiling
 
@@ -25,38 +17,34 @@ cross build --target x86_64-pc-windows-gnu --release
 
 ## Usage
 
-Simply place the binary in your user autostart. It will check the process list every 20 seconds and automatically boot
-up all plugins once it detects VRChat to be running. After VRChat has stopped, all plugins will be stopped again as
-well.
+Download the latest binary for your system from the [Releases](https://github.com/DASPRiD/vrc-osc-manager/releases)
+section. Place it in a permanent location and start it up.
 
-This is indicated in your tray bar through the `OSC` icon. When it's inactive, it will be gray, otherwise green.
+You should see an OSC tray icon appearing in your tray bar. Click on it and select "Open VRC OSC Manager". You can then
+enable and configure plugins.
 
-Via the tray icon menu you also have two options available:
-
-- Exit the application
-- Reload plugins: This will reload the entire plugin config in case you changed it on disk.
+If you want the application to automatically start with your system, go to settings and toggle "Auto start" on.
 
 ## Activity check
 
 By default, plugins will only be started when VRChat is detected to be running. If you need them running for testing
-outside VRChat, you can disable the activity check by passing `--disable-activity-check` as command line argument.
+outside VRChat, you can force start them through the settings panel. Plugins are running when the tray icon turns
+green.
 
 ## Logging
 
 The application normally logs all messages with info level and higher to the console as well as to a rotating log file.
 In case you experience any unexpected crashes or behaviours, you should create a bug report with the latest log file
-attached. To generate more verbose logging, you can pass the `--debug` command line argument.
+attached. If you need more verbose logs, you can run the application from a terminal with `RUST_LOG=debug`.
 
-Please note that on Windows oyu will not see any debug output on the console with a release build.
+Please note that on Windows you will not see any debug output on the console with a release build.
 
-Log files can be found on Linux under `~/.local/share/vrc-osc-manager\logs`. On Windows they should be located under
-`C:\Users\username\Application Data\vrc-osc-manager\logs`. The latest log file is always called `log`, while older
-ones are suffixed with a timestamp.
+To find the log folder, simply open the settings panel and click "Open logs folder".
 
 ## Dark mode
 
-Depending on your operating system theme, the default light icons might not be visible in your tray bar. You can switch
-to icons for dark mode by passing `--dark-mode-icons` as command line argument.
+The application tries to auto-detect whether it needs to use light or dark icons in your tray bar. If this method fails,
+you can force a specific icon style in the settings.
 
 ## OS support
 
@@ -76,7 +64,7 @@ set up is a menu within your avatar with buttons controlling the following boole
 
 ### Watch
 
-This plugin drives the [OSC Watch VRChat accessory](https://booth.pm/en/items/3687002) component.  It implements the
+This plugin drives the [OSC Watch VRChat accessory](https://booth.pm/en/items/3687002) component. It implements the
 same functionality as the original application minus the functionality of toggling the Discord microphone.
 
 ### PiShock
@@ -104,7 +92,7 @@ will automatically be populated with the last values.
 Quick shocks are always send with a duration of 1 second. You can trigger these with your own contact receivers, e.g.
 by driving the variable through an animation controller.
 
-If you are looking for a ready-made UI, you can use my [VRChat PiShock Controller](https://dasprid.gumroad.com/l/llfyq). 
+If you are looking for a ready-made UI, you can use my [VRChat PiShock Controller](https://dasprid.gumroad.com/l/llfyq).
 Otherwise, you can implement your own UI on your avatar. The pressed parameters are only read by the plugin, while the
 intensity parameter is both read and written, so you can also control it via a radial menu.
 

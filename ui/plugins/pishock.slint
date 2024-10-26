@@ -1,0 +1,114 @@
+import { Button, LineEdit, SpinBox, TextEdit, HorizontalBox, VerticalBox } from "std-widgets.slint";
+import { Overlay } from "../widgets/overlay.slint";
+import { FormGroup } from "../widgets/form_group.slint";
+
+export global PishockSettings {
+    in-out property <string> username: "pishock";
+    in-out property <string> api-key: "pishock";
+    in-out property <int> duration: 5;
+    in-out property <string> share-codes: "foo\nbar";
+    in-out property <bool> is-dirty: false;
+
+    callback cancel();
+    callback apply();
+    callback okay();
+}
+
+export component PishockSettingsOverlay inherits Overlay {
+    min-width: 800px;
+    min-height: 600px;
+
+    VerticalBox {
+        padding: 16px;
+
+        VerticalLayout {
+            alignment: start;
+            vertical-stretch: 1;
+            spacing: 8px;
+
+            FormGroup {
+                label: "Username";
+
+                LineEdit {
+                    text <=> PishockSettings.username;
+                    edited => {
+                        PishockSettings.is-dirty = true;
+                    }
+                }
+            }
+
+            FormGroup {
+                label: "API Key";
+
+                LineEdit {
+                    text <=> PishockSettings.api-key;
+                    edited => {
+                        PishockSettings.is-dirty = true;
+                    }
+                }
+            }
+
+            FormGroup {
+                label: "Duration";
+
+                SpinBox {
+                    minimum: 1;
+                    maximum: 10;
+                    width: 150px;
+                    value <=> PishockSettings.duration;
+                    edited => {
+                        PishockSettings.is-dirty = true;
+                    }
+                }
+            }
+
+            FormGroup {
+                label: "Share Codes";
+
+                VerticalLayout {
+                    spacing: 8px;
+                    horizontal-stretch: 1;
+
+                    TextEdit {
+                        wrap: no-wrap;
+                        height: 100px;
+                        text <=> PishockSettings.share-codes;
+                        edited => {
+                            PishockSettings.is-dirty = true;
+                        }
+                    }
+
+                    Text {
+                        text: "Add one share code per line.";
+                    }
+                }
+            }
+        }
+
+        HorizontalBox {
+            padding: 0;
+
+            Button {
+                text: "Cancel";
+                clicked => {
+                    PishockSettings.cancel()
+                }
+            }
+
+            Button {
+                enabled: PishockSettings.is-dirty;
+                text: "Apply";
+                clicked => {
+                    PishockSettings.apply()
+                }
+            }
+
+            Button {
+                text: "Ok";
+                clicked => {
+                    PishockSettings.okay()
+                }
+            }
+        }
+    }
+}

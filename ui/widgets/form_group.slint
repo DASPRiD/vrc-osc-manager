@@ -1,0 +1,15 @@
+export component FormGroup inherits HorizontalLayout {
+    in property <string> label;
+
+    VerticalLayout {
+        alignment: start;
+        padding-top: 6px;
+        width: 100px;
+
+        Text {
+            text: root.label + ":";
+        }
+    }
+
+    @children
+}
