@@ -147,7 +147,7 @@ async fn send_commands(
         }
     }
 
-    if succeeded && op.is_shock() {
+    if succeeded && matches!(op, Operation::Shock) {
         let _ = activity_tx.send(duration).await;
     }
 }
@@ -417,13 +417,6 @@ impl Operation {
             Operation::Vibrate => 1,
         }
     }
-
-    fn is_shock(self) -> bool {
-        match self {
-            Operation::Shock => true,
-            _ => false,
-        }
-    }
 }
 
 impl State {
@@ -536,7 +529,7 @@ impl PiShock {
 
                     send_commands(
                         &self.core_config,
-                        value.clamp(0., state.intensity_cap),
+                        value.clamp(0., 1.),
                         1,
                         activity_tx,
                         Operation::Vibrate,
