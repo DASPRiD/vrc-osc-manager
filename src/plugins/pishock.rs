@@ -147,7 +147,7 @@ async fn send_commands(
         }
     }
 
-    if succeeded {
+    if succeeded && op == 0 {
         let _ = activity_tx.send(duration).await;
     }
 }
