@@ -48,18 +48,19 @@ struct ShockBody {
     intensity: u8,
 }
 
-async fn send_shock(
+async fn send_command(
     config: Arc<ConfigHandle<CoreConfig>>,
     code: String,
     intensity: f32,
     duration: u8,
+    op: u8,
 ) -> anyhow::Result<()> {
     let intensity = 1 + (99. * intensity) as u8;
     let duration = duration.clamp(1, 15);
 
     info!(
-        "Sending shock to {} with intensity {} and duration {}",
-        code, intensity, duration
+        "Sending op {} to {} with intensity {} and duration {}",
+        op, code, intensity, duration
     );
 
     let (username, api_key) = {
@@ -72,7 +73,7 @@ async fn send_shock(
         api_key,
         code,
         name: "VRC OSC Manager - PiShock Plugin".to_string(),
-        op: 0,
+        op,
         duration,
         intensity,
     };
@@ -102,11 +103,12 @@ async fn send_shock(
     }
 }
 
-async fn send_shocks(
+async fn send_commands(
     config: &Arc<ConfigHandle<CoreConfig>>,
     intensity: f32,
     duration: u8,
     activity_tx: &mpsc::Sender<u8>,
+    op: u8,
 ) {
     let codes = config.read().await.codes.clone();
 
@@ -118,11 +120,13 @@ async fn send_shocks(
     let mut set = JoinSet::new();
 
     for code in codes {
-        set.spawn(send_shock(
+        set.spawn(send_command
+        (
             config.clone(),
             code.clone(),
             intensity,
             duration,
+            op,
         ));
     }
 
@@ -131,7 +135,7 @@ async fn send_shocks(
     while let Some(res) = set.join_next().await {
         match res {
             Ok(Ok(())) => {
-                debug!("Shock succeeded");
+                debug!("Command succeeded");
                 succeeded = true;
             }
             Ok(Err(error)) => {
@@ -176,7 +180,7 @@ impl ContinuousShockSender {
         loop {
             let intensity = self.session_config.read().await.intensity;
 
-            send_shocks(&self.core_config, intensity, duration, &self.activity_tx).await;
+            send_commands(&self.core_config, intensity, duration, &self.activity_tx, 0).await;
 
             select! {
                 _ = self.cancellation_token.cancelled() => break,
@@ -504,15 +508,30 @@ impl PiShock {
                         .await;
                 }
             }
-            ("/avatar/parameters/PS_QuickShock", &[OscType::Float(value)]) => {
+            ("/avatar/parameters/PS_QuickVibrate", &[OscType::Float(value)]) => {
                 if value >= 0. {
                     let state = self.session_config.read().await;
 
-                    send_shocks(
+                    send_commands(
                         &self.core_config,
                         value.clamp(0., state.intensity_cap),
                         1,
                         activity_tx,
+                        1,
+                    )
+                    .await;
+                }
+            }
+            ("/avatar/parameters/PS_QuickShock", &[OscType::Float(value)]) => {
+                if value >= 0. {
+                    let state = self.session_config.read().await;
+
+                    send_commands(
+                        &self.core_config,
+                        value.clamp(0., state.intensity_cap),
+                        1,
+                        activity_tx,
+                        0,
                     )
                     .await;
                 }
@@ -758,10 +777,16 @@ impl Plugin for PiShock {
             "Shock intensity cap".to_string(),
         );
         service.add_endpoint(
-            "/avatar/parameters/PS_QuickShock".to_string(),
+            "/avatar/parameters/PS_QuickVibrate".to_string(),
             "d".to_string(),
             OscAccess::ReadWrite,
             "Quick shock".to_string(),
+        );
+        service.add_endpoint(
+            "/avatar/parameters/PS_QuickShock".to_string(),
+            "d".to_string(),
+            OscAccess::ReadWrite,
+            "Quick vibrate".to_string(),
         );
     }
 
