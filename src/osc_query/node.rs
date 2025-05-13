@@ -112,10 +112,7 @@ impl OscQueryNode {
             };
         }
 
-        let contents = match self.contents.as_ref() {
-            None => return None,
-            Some(contents) => contents,
-        };
+        let contents = self.contents.as_ref()?;
 
         match contents.get(&next_key.to_string()) {
             Some(node) => node.get(path),
