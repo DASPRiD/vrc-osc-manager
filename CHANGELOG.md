@@ -1,3 +1,10 @@
+## [3.0.1](https://github.com/DASPRiD/vrc-osc-manager/compare/v3.0.0...v3.0.1) (2025-05-13)
+
+
+### Bug Fixes
+
+* code-sign Windows release executable to prevent firewall blocking ([e51c3d1](https://github.com/DASPRiD/vrc-osc-manager/commit/e51c3d174021dfd76828639db8a3b6d9c0dca926))
+
 # [3.0.0](https://github.com/DASPRiD/vrc-osc-manager/compare/v2.2.0...v3.0.0) (2024-10-26)
 
 
