@@ -102,6 +102,18 @@ jobs:
           else
             cargo install cross --git https://github.com/rust-embedded/cross
             cross build --release --target x86_64-pc-windows-gnu
+            sudo apt-get install osslsigncode
+            echo "${{ secrets.WIN_SIGN_KEY }}" | base64 -d > code_sign.key.pem
+            echo "${{ secrets.WIN_SIGN_CERT }}" | base64 -d > code_sign.cert.pem
+            mkdir ./target/x86_64-pc-windows-gnu/signed
+            osslsigncode sign \
+              -certs code_sign.cert.pem \
+              -key code_sign.key.pem \
+              -n "VRC OSC Manager" \
+              -i https://github.com/DASPRiD/vrc-osc-manager/ \
+              -t http://timestamp.sectigo.com \
+              -in ./target/x86_64-pc-windows-gnu/release/vrc-osc-manager.exe \
+              -out ./target/x86_64-pc-windows-gnu/signed/vrc-osc-manager.exe
           fi
         shell: bash
 
@@ -111,7 +123,7 @@ jobs:
           name: ${{ matrix.target }}-binary
           path: |
             ./target/x86_64-unknown-linux-gnu/release/vrc-osc-manager
-            ./target/x86_64-pc-windows-gnu/release/vrc-osc-manager.exe
+            ./target/x86_64-pc-windows-gnu/signed/vrc-osc-manager.exe
 
   semantic-release:
     needs: [ check-release, build ]
