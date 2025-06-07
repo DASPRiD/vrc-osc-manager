@@ -48,18 +48,19 @@ struct ShockBody {
     intensity: u8,
 }
 
-async fn send_shock(
+async fn send_command(
     config: Arc<ConfigHandle<CoreConfig>>,
     code: String,
     intensity: f32,
     duration: u8,
+    op: Operation,
 ) -> anyhow::Result<()> {
     let intensity = 1 + (99. * intensity) as u8;
     let duration = duration.clamp(1, 15);
 
     info!(
-        "Sending shock to {} with intensity {} and duration {}",
-        code, intensity, duration
+        "Sending {:?} to {} with intensity {} and duration {}",
+        op, code, intensity, duration
     );
 
     let (username, api_key) = {
@@ -72,7 +73,7 @@ async fn send_shock(
         api_key,
         code,
         name: "VRC OSC Manager - PiShock Plugin".to_string(),
-        op: 0,
+        op: op.into_byte(),
         duration,
         intensity,
     };
@@ -102,11 +103,12 @@ async fn send_shock(
     }
 }
 
-async fn send_shocks(
+async fn send_commands(
     config: &Arc<ConfigHandle<CoreConfig>>,
     intensity: f32,
     duration: u8,
     activity_tx: &mpsc::Sender<u8>,
+    op: Operation,
 ) {
     let codes = config.read().await.codes.clone();
 
@@ -118,11 +120,13 @@ async fn send_shocks(
     let mut set = JoinSet::new();
 
     for code in codes {
-        set.spawn(send_shock(
+        set.spawn(send_command
+        (
             config.clone(),
             code.clone(),
             intensity,
             duration,
+            op,
         ));
     }
 
@@ -131,7 +135,7 @@ async fn send_shocks(
     while let Some(res) = set.join_next().await {
         match res {
             Ok(Ok(())) => {
-                debug!("Shock succeeded");
+                debug!("Command succeeded");
                 succeeded = true;
             }
             Ok(Err(error)) => {
@@ -143,7 +147,7 @@ async fn send_shocks(
         }
     }
 
-    if succeeded {
+    if succeeded && matches!(op, Operation::Shock) {
         let _ = activity_tx.send(duration).await;
     }
 }
@@ -176,7 +180,7 @@ impl ContinuousShockSender {
         loop {
             let intensity = self.session_config.read().await.intensity;
 
-            send_shocks(&self.core_config, intensity, duration, &self.activity_tx).await;
+            send_commands(&self.core_config, intensity, duration, &self.activity_tx, Operation::Shock).await;
 
             select! {
                 _ = self.cancellation_token.cancelled() => break,
@@ -400,6 +404,21 @@ struct State {
     cancel_modification: Option<CancellationToken>,
 }
 
+#[derive(Debug, Clone, Copy)]
+enum Operation {
+    Shock,
+    Vibrate,
+}
+
+impl Operation {
+    fn into_byte(self) -> u8 {
+        match self {
+            Operation::Shock => 0,
+            Operation::Vibrate => 1,
+        }
+    }
+}
+
 impl State {
     fn reset(&mut self) {
         self.pressed_buttons.clear();
@@ -504,15 +523,30 @@ impl PiShock {
                         .await;
                 }
             }
+            ("/avatar/parameters/PS_QuickVibrate", &[OscType::Float(value)]) => {
+                if value >= 0. {
+                    let state = self.session_config.read().await;
+
+                    send_commands(
+                        &self.core_config,
+                        value.clamp(0., 1.),
+                        1,
+                        activity_tx,
+                        Operation::Vibrate,
+                    )
+                    .await;
+                }
+            }
             ("/avatar/parameters/PS_QuickShock", &[OscType::Float(value)]) => {
                 if value >= 0. {
                     let state = self.session_config.read().await;
 
-                    send_shocks(
+                    send_commands(
                         &self.core_config,
                         value.clamp(0., state.intensity_cap),
                         1,
                         activity_tx,
+                        Operation::Shock,
                     )
                     .await;
                 }
@@ -758,10 +792,16 @@ impl Plugin for PiShock {
             "Shock intensity cap".to_string(),
         );
         service.add_endpoint(
-            "/avatar/parameters/PS_QuickShock".to_string(),
+            "/avatar/parameters/PS_QuickVibrate".to_string(),
             "d".to_string(),
             OscAccess::ReadWrite,
             "Quick shock".to_string(),
+        );
+        service.add_endpoint(
+            "/avatar/parameters/PS_QuickShock".to_string(),
+            "d".to_string(),
+            OscAccess::ReadWrite,
+            "Quick vibrate".to_string(),
         );
     }
 
