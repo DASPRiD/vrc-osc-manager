@@ -1,3 +1,10 @@
+## [3.0.2](https://github.com/DASPRiD/vrc-osc-manager/compare/v3.0.1...v3.0.2) (2025-12-11)
+
+
+### Bug Fixes
+
+* bump dependencies and compile Linux version against older glibc ([161b632](https://github.com/DASPRiD/vrc-osc-manager/commit/161b632607ee391e62864fc15318d80ddf04fa12))
+
 ## [3.0.1](https://github.com/DASPRiD/vrc-osc-manager/compare/v3.0.0...v3.0.1) (2025-05-13)
 
 
