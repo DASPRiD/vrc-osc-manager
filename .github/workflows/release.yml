@@ -97,10 +97,11 @@ jobs:
 
       - name: Build Binary
         run: |
+          cargo install cross --git https://github.com/rust-embedded/cross
+          
           if [ "${{ matrix.target }}" == "linux-x64" ]; then
             cross build --release --target x86_64-unknown-linux-gnu
           else
-            cargo install cross --git https://github.com/rust-embedded/cross
             cross build --release --target x86_64-pc-windows-gnu
             sudo apt-get install osslsigncode
             echo "${{ secrets.WIN_SIGN_KEY }}" | base64 -d > code_sign.key.pem
