@@ -10,12 +10,8 @@ license-file = "LICENSE"
 [dependencies]
 anyhow = "1.0.82"
 async-osc = "0.2.0"
-cfg-if = "1.0.0"
 chrono = "0.4.38"
-clap = { version = "4.5.4", features = ["derive"] }
 directories = "5.0.1"
-file-rotate = "0.7.5"
-hyper = { version = "0.14.28", features = ["http1", "server", "tcp"] }
 log = "0.4.21"
 reqwest = { version = "0.12.3", features = ["default", "json"] }
 enigo = { version = "0.2.0-rc2" }
@@ -23,7 +19,6 @@ searchlight = "0.3.2"
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.116"
 serde_repr = "0.1.19"
-simplelog = "0.12.2"
 sysinfo = "0.30.10"
 tokio = { version = "1.37.0", features = ["full"] }
 tokio-graceful-shutdown = "0.15.0"

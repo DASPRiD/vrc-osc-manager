@@ -40,7 +40,7 @@ where
         Ok(result)
     }
 
-    pub fn blocking_read(&self) -> RwLockReadGuard<T> {
+    pub fn blocking_read(&self) -> RwLockReadGuard<'_, T> {
         self.config.blocking_read()
     }
 
@@ -58,7 +58,7 @@ where
         Ok(result)
     }
 
-    pub async fn read(&self) -> RwLockReadGuard<T> {
+    pub async fn read(&self) -> RwLockReadGuard<'_, T> {
         self.config.read().await
     }
 
