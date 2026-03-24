@@ -13,6 +13,7 @@ use async_osc::{prelude::OscMessageExt, OscMessage, OscType};
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
+use serde_repr::Serialize_repr;
 use slint::{ComponentHandle, Weak};
 use tokio::select;
 use tokio::sync::broadcast::error::RecvError;
@@ -24,103 +25,162 @@ use tokio_graceful_shutdown::{
 };
 use tokio_util::sync::CancellationToken;
 
-#[derive(Serialize, Deserialize, Debug)]
-struct ShockBody {
-    #[serde(rename = "Username")]
-    username: String,
+#[derive(Clone, Copy, Serialize_repr)]
+#[repr(u8)]
+#[allow(dead_code)]
+enum Operation {
+    Shock = 0,
+    Vibrate = 1,
+    Beep = 2,
+}
 
-    #[serde(rename = "ApiKey")]
-    api_key: String,
+#[derive(Serialize)]
+struct OperateBody {
+    #[serde(rename = "AgentName")]
+    agent_name: String,
 
-    #[serde(rename = "Code")]
-    code: String,
-
-    #[serde(rename = "Name")]
-    name: String,
-
-    #[serde(rename = "Op")]
-    op: u8,
+    #[serde(rename = "Operation")]
+    operation: Operation,
 
     #[serde(rename = "Duration")]
-    duration: u8,
+    duration: u32,
 
     #[serde(rename = "Intensity")]
     intensity: u8,
 }
 
+#[derive(Deserialize)]
+struct UserIdResponse {
+    #[serde(rename = "UserId")]
+    user_id: u64,
+}
+
+#[derive(Deserialize)]
+struct DeviceResponse {
+    shockers: Vec<ShockerInfo>,
+}
+
+#[derive(Deserialize)]
+struct ShockerInfo {
+    #[serde(rename = "shockerId")]
+    shocker_id: u64,
+}
+
+struct ApiContext {
+    client: reqwest::Client,
+    api_key: String,
+    shocker_ids: Arc<Vec<u64>>,
+    duration: u8,
+}
+
+async fn fetch_user_id(
+    client: &reqwest::Client,
+    api_key: &str,
+    username: &str,
+) -> anyhow::Result<u64> {
+    let response = client
+        .get("https://auth.pishock.com/Auth/GetUserIfAPIKeyValid")
+        .query(&[("apikey", api_key), ("username", username)])
+        .send()
+        .await?
+        .error_for_status()?
+        .json::<UserIdResponse>()
+        .await?;
+
+    Ok(response.user_id)
+}
+
+async fn fetch_shocker_ids(
+    client: &reqwest::Client,
+    api_key: &str,
+    user_id: u64,
+) -> anyhow::Result<Vec<u64>> {
+    let user_id_str = user_id.to_string();
+    let devices = client
+        .get("https://ps.pishock.com/PiShock/GetUserDevices")
+        .query(&[
+            ("UserId", user_id_str.as_str()),
+            ("Token", api_key),
+            ("api", "true"),
+        ])
+        .send()
+        .await?
+        .error_for_status()?
+        .json::<Vec<DeviceResponse>>()
+        .await?;
+
+    let shocker_ids: Vec<u64> = devices
+        .into_iter()
+        .flat_map(|device| device.shockers.into_iter().map(|s| s.shocker_id))
+        .collect();
+
+    Ok(shocker_ids)
+}
+
 async fn send_shock(
-    config: Arc<ConfigHandle<CoreConfig>>,
-    code: String,
+    client: reqwest::Client,
+    api_key: String,
+    shocker_id: u64,
     intensity: f32,
     duration: u8,
 ) -> anyhow::Result<()> {
     let intensity = 1 + (99. * intensity) as u8;
-    let duration = duration.clamp(1, 15);
+    let duration_ms = (duration as u32) * 1000;
 
     info!(
-        "Sending shock to {} with intensity {} and duration {}",
-        code, intensity, duration
+        "Sending shock to shocker {} with intensity {} and duration {}s",
+        shocker_id, intensity, duration
     );
 
-    let (username, api_key) = {
-        let config = config.read().await;
-        (config.username.clone(), config.api_key.clone())
-    };
-
-    let body = ShockBody {
-        username,
-        api_key,
-        code,
-        name: "VRC OSC Manager - PiShock Plugin".to_string(),
-        op: 0,
-        duration,
+    let body = OperateBody {
+        agent_name: "VRC OSC Manager - PiShock Plugin".to_string(),
+        operation: Operation::Shock,
+        duration: duration_ms,
         intensity,
     };
 
-    let client = reqwest::Client::new();
     let response = client
-        .post("https://do.pishock.com/api/apioperate")
+        .post(format!("https://api.pishock.com/Shockers/{}", shocker_id))
+        .header("X-PiShock-Api-Key", &api_key)
         .json(&body)
         .send()
         .await;
 
     match response {
         Ok(response) => {
-            let status = response.text().await;
-
-            match status {
-                Ok(status) => match status.as_str() {
-                    "Not Authorized." => Err(anyhow!("Invalid credentials")),
-                    "Operation Succeeded." => Ok(()),
-                    "Operation Attempted." => Ok(()),
-                    _ => Err(anyhow!("Unknown response: {}", status)),
-                },
-                Err(_) => Err(anyhow!("Failed to parse response")),
+            if response.status().is_success() {
+                Ok(())
+            } else {
+                Err(anyhow!(
+                    "Shock request failed with status {}",
+                    response.status()
+                ))
             }
         }
-        Err(_) => Err(anyhow!("Failed to contact pishock API")),
+        Err(_) => Err(anyhow!("Failed to contact PiShock API")),
     }
 }
 
 async fn send_shocks(
-    config: &Arc<ConfigHandle<CoreConfig>>,
+    client: &reqwest::Client,
+    api_key: &str,
+    shocker_ids: &[u64],
     intensity: f32,
     duration: u8,
     activity_tx: &mpsc::Sender<u8>,
 ) {
-    let codes = config.read().await.codes.clone();
-
-    if codes.is_empty() {
-        warn!("No codes configured");
+    if shocker_ids.is_empty() {
+        warn!("No shockers available");
         return;
     }
 
     let mut set = JoinSet::new();
 
-    for code in codes {
+    for &shocker_id in shocker_ids {
         set.spawn(send_shock(
-            config.clone(),
-            code.clone(),
+            client.clone(),
+            api_key.to_string(),
+            shocker_id,
             intensity,
             duration,
         ));
@@ -148,8 +208,71 @@ async fn send_shocks(
     }
 }
 
+async fn run_connection_test(username: String, api_key: String) -> anyhow::Result<()> {
+    if username.is_empty() || api_key.is_empty() {
+        return Err(anyhow!("Username and API key are required"));
+    }
+
+    let client = reqwest::Client::new();
+    let user_id = fetch_user_id(&client, &api_key, &username).await?;
+    let shocker_ids = fetch_shocker_ids(&client, &api_key, user_id).await?;
+
+    if shocker_ids.is_empty() {
+        return Err(anyhow!("No shockers found"));
+    }
+
+    let body = OperateBody {
+        agent_name: "VRC OSC Manager - PiShock Plugin".to_string(),
+        operation: Operation::Beep,
+        duration: 1000,
+        intensity: 20,
+    };
+
+    let mut any_succeeded = false;
+    let mut last_error = None;
+
+    let mut set = JoinSet::new();
+    for &shocker_id in &shocker_ids {
+        let client = client.clone();
+        let api_key = api_key.clone();
+        let body_json = serde_json::to_value(&body).unwrap();
+        set.spawn(async move {
+            let response = client
+                .post(format!("https://api.pishock.com/Shockers/{}", shocker_id))
+                .header("X-PiShock-Api-Key", &api_key)
+                .json(&body_json)
+                .send()
+                .await
+                .map_err(|_| anyhow!("Failed to contact PiShock API"))?;
+
+            if response.status().is_success() {
+                Ok(())
+            } else {
+                Err(anyhow!("Status {}", response.status()))
+            }
+        });
+    }
+
+    while let Some(res) = set.join_next().await {
+        match res {
+            Ok(Ok(())) => any_succeeded = true,
+            Ok(Err(e)) => last_error = Some(e),
+            Err(e) => last_error = Some(anyhow!("{}", e)),
+        }
+    }
+
+    if any_succeeded {
+        Ok(())
+    } else {
+        Err(last_error.unwrap_or_else(|| anyhow!("Unknown error")))
+    }
+}
+
 struct ContinuousShockSender {
-    core_config: Arc<ConfigHandle<CoreConfig>>,
+    client: reqwest::Client,
+    api_key: String,
+    shocker_ids: Arc<Vec<u64>>,
+    duration: u8,
     session_config: Arc<ConfigHandle<SessionConfig>>,
     cancellation_token: CancellationToken,
     activity_tx: mpsc::Sender<u8>,
@@ -157,13 +280,19 @@ struct ContinuousShockSender {
 
 impl ContinuousShockSender {
     pub fn new(
-        core_config: Arc<ConfigHandle<CoreConfig>>,
+        client: reqwest::Client,
+        api_key: String,
+        shocker_ids: Arc<Vec<u64>>,
+        duration: u8,
         session_config: Arc<ConfigHandle<SessionConfig>>,
         cancellation_token: CancellationToken,
         activity_tx: mpsc::Sender<u8>,
     ) -> Self {
         Self {
-            core_config,
+            client,
+            api_key,
+            shocker_ids,
+            duration,
             session_config,
             cancellation_token,
             activity_tx,
@@ -171,16 +300,22 @@ impl ContinuousShockSender {
     }
 
     async fn main_loop(&self) {
-        let duration = self.core_config.read().await.duration;
-
         loop {
             let intensity = self.session_config.read().await.intensity;
 
-            send_shocks(&self.core_config, intensity, duration, &self.activity_tx).await;
+            send_shocks(
+                &self.client,
+                &self.api_key,
+                &self.shocker_ids,
+                intensity,
+                self.duration,
+                &self.activity_tx,
+            )
+            .await;
 
             select! {
                 _ = self.cancellation_token.cancelled() => break,
-                _ = sleep(Duration::from_secs(duration as u64)) => continue,
+                _ = sleep(Duration::from_secs(self.duration as u64)) => continue,
             }
         }
     }
@@ -330,8 +465,8 @@ impl IntoSubsystem<Infallible> for ActivityMonitor {
 pub struct CoreConfig {
     pub username: String,
     pub api_key: String,
-    pub codes: Vec<String>,
     pub duration: u8,
+    pub user_id: Option<u64>,
 }
 
 impl Default for CoreConfig {
@@ -339,8 +474,8 @@ impl Default for CoreConfig {
         Self {
             username: "".to_string(),
             api_key: "".to_string(),
-            codes: vec!["".to_string()],
             duration: 4,
+            user_id: None,
         }
     }
 }
@@ -420,6 +555,7 @@ impl PiShock {
         subsys: &SubsystemHandle,
         channels: Arc<ChannelManager>,
     ) -> anyhow::Result<()> {
+        let client = reqwest::Client::new();
         let osc_tx = channels.create_osc_sender();
         let (activity_tx, activity_rx) = mpsc::channel(8);
         let mut osc_rx = channels.subscribe_to_osc();
@@ -429,12 +565,36 @@ impl PiShock {
             move |s| ActivityMonitor::new(activity_rx, osc_tx).run(s)
         }));
 
+        let config = self.core_config.read().await.clone();
+        let shocker_ids = if config.username.is_empty() || config.api_key.is_empty() {
+            warn!("PiShock credentials not configured");
+            vec![]
+        } else {
+            match self.resolve_shocker_ids(&client, &config).await {
+                Ok(ids) => {
+                    info!("Found {} shocker(s)", ids.len());
+                    ids
+                }
+                Err(error) => {
+                    warn!("Failed to initialize PiShock API: {}", error);
+                    vec![]
+                }
+            }
+        };
+
+        let api = ApiContext {
+            client,
+            api_key: config.api_key.clone(),
+            shocker_ids: Arc::new(shocker_ids),
+            duration: config.duration,
+        };
+
         self.send_state(&osc_tx).await;
 
         loop {
             match osc_rx.recv().await {
                 Ok(message) => {
-                    self.handle_osc_messages(message, &osc_tx, subsys, &activity_tx)
+                    self.handle_osc_messages(message, &osc_tx, subsys, &activity_tx, &api)
                         .await?;
                 }
                 Err(RecvError::Closed) => break,
@@ -450,12 +610,35 @@ impl PiShock {
         Ok(())
     }
 
+    async fn resolve_shocker_ids(
+        &self,
+        client: &reqwest::Client,
+        config: &CoreConfig,
+    ) -> anyhow::Result<Vec<u64>> {
+        let user_id = match config.user_id {
+            Some(id) => id,
+            None => {
+                let id = fetch_user_id(client, &config.api_key, &config.username).await?;
+                let _ = self
+                    .core_config
+                    .update(|c| {
+                        c.user_id = Some(id);
+                    })
+                    .await;
+                id
+            }
+        };
+
+        fetch_shocker_ids(client, &config.api_key, user_id).await
+    }
+
     async fn handle_osc_messages(
         &self,
         message: OscMessage,
         osc_tx: &mpsc::Sender<OscMessage>,
         subsys: &SubsystemHandle,
         activity_tx: &mpsc::Sender<u8>,
+        api: &ApiContext,
     ) -> anyhow::Result<()> {
         match message.as_tuple() {
             ("/avatar/parameters/PS_Minus_Pressed", &[OscType::Bool(value)]) => {
@@ -468,11 +651,11 @@ impl PiShock {
             }
             ("/avatar/parameters/PS_ShockLeft_Pressed", &[OscType::Bool(value)]) => {
                 self.toggle_button(Button::ShockLeft, value).await;
-                self.check_shock_state(subsys, activity_tx).await;
+                self.check_shock_state(subsys, activity_tx, api).await;
             }
             ("/avatar/parameters/PS_ShockRight_Pressed", &[OscType::Bool(value)]) => {
                 self.toggle_button(Button::ShockRight, value).await;
-                self.check_shock_state(subsys, activity_tx).await;
+                self.check_shock_state(subsys, activity_tx, api).await;
             }
             ("/avatar/parameters/PS_Intensity", &[OscType::Float(value)]) => {
                 let new_cap = self
@@ -509,7 +692,9 @@ impl PiShock {
                     let state = self.session_config.read().await;
 
                     send_shocks(
-                        &self.core_config,
+                        &api.client,
+                        &api.api_key,
+                        &api.shocker_ids,
                         value.clamp(0., state.intensity_cap),
                         1,
                         activity_tx,
@@ -585,7 +770,12 @@ impl PiShock {
         cancellation_token
     }
 
-    async fn check_shock_state(&self, subsys: &SubsystemHandle, activity_tx: &mpsc::Sender<u8>) {
+    async fn check_shock_state(
+        &self,
+        subsys: &SubsystemHandle,
+        activity_tx: &mpsc::Sender<u8>,
+        api: &ApiContext,
+    ) {
         let mut state = self.state.write().await;
 
         match (
@@ -597,14 +787,20 @@ impl PiShock {
                 let cancellation_token = CancellationToken::new();
 
                 subsys.start(SubsystemBuilder::new("ContinuousShockSender", {
-                    let core_config = self.core_config.clone();
+                    let client = api.client.clone();
+                    let api_key = api.api_key.clone();
+                    let shocker_ids = api.shocker_ids.clone();
+                    let duration = api.duration;
                     let session_config = self.session_config.clone();
                     let cancellation_token = cancellation_token.clone();
                     let activity_tx = activity_tx.clone();
 
                     move |s| {
                         ContinuousShockSender::new(
-                            core_config,
+                            client,
+                            api_key,
+                            shocker_ids,
+                            duration,
                             session_config,
                             cancellation_token,
                             activity_tx,
@@ -644,37 +840,22 @@ impl PiShock {
         let username = settings.get_username().to_string().trim().to_string();
         let api_key = settings.get_api_key().to_string().trim().to_string();
         let duration = settings.get_duration().clamp(1, 15) as u8;
-        let codes = Self::parse_share_codes(settings.get_share_codes().to_string());
 
         self.core_config.blocking_update(|config| {
+            if config.username != username || config.api_key != api_key {
+                config.user_id = None;
+            }
             config.username = username.clone();
             config.api_key = api_key.clone();
             config.duration = duration;
-            config.codes = codes.clone();
         })?;
 
         settings.set_username(username.into());
         settings.set_api_key(api_key.into());
         settings.set_duration(duration as i32);
-        settings.set_share_codes(codes.join("\n").into());
         settings.set_is_dirty(false);
 
         Ok(())
-    }
-
-    fn parse_share_codes(input: String) -> Vec<String> {
-        input
-            .lines()
-            .map(str::trim)
-            .map(|line| {
-                if let Some(index) = line.find("?sharecode=") {
-                    line[index + 11..].to_string()
-                } else {
-                    line.to_string()
-                }
-            })
-            .filter(|line| !line.is_empty())
-            .collect()
     }
 }
 
@@ -811,6 +992,42 @@ impl Plugin for PiShock {
             }
         });
 
+        settings.on_test({
+            let app_window = app_window.as_weak();
+
+            move || {
+                let handle = app_window.unwrap();
+                let settings = handle.global::<PishockSettings>();
+
+                let username = settings.get_username().to_string().trim().to_string();
+                let api_key = settings.get_api_key().to_string().trim().to_string();
+
+                settings.set_test_running(true);
+                settings.set_test_status("".into());
+
+                let app_window = app_window.clone();
+                std::thread::spawn(move || {
+                    let rt = tokio::runtime::Runtime::new().unwrap();
+                    let result = rt.block_on(run_connection_test(username, api_key));
+
+                    let _ = app_window.upgrade_in_event_loop(move |handle| {
+                        let settings = handle.global::<PishockSettings>();
+                        settings.set_test_running(false);
+                        match result {
+                            Ok(()) => {
+                                settings.set_test_success(true);
+                                settings.set_test_status("Connection successful!".into());
+                            }
+                            Err(error) => {
+                                settings.set_test_success(false);
+                                settings.set_test_status(format!("{}", error).into());
+                            }
+                        }
+                    });
+                });
+            }
+        });
+
         Ok(())
     }
 
@@ -822,8 +1039,9 @@ impl Plugin for PiShock {
         settings.set_username(config.username.into());
         settings.set_api_key(config.api_key.into());
         settings.set_duration(config.duration as i32);
-        settings.set_share_codes(config.codes.join("\n").into());
         settings.set_is_dirty(false);
+        settings.set_test_status("".into());
+        settings.set_test_running(false);
 
         app_window
             .global::<Router>()
