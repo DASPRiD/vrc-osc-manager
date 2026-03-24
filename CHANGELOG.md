@@ -1,3 +1,10 @@
+# [3.1.0](https://github.com/DASPRiD/vrc-osc-manager/compare/v3.0.2...v3.1.0) (2026-03-24)
+
+
+### Features
+
+* migrate PiShock plugin to new API ([2fcf99c](https://github.com/DASPRiD/vrc-osc-manager/commit/2fcf99c9c003fd4975914ba95cecf171ea267c29))
+
 ## [3.0.2](https://github.com/DASPRiD/vrc-osc-manager/compare/v3.0.1...v3.0.2) (2025-12-11)
 
 
