@@ -9,7 +9,7 @@ VRC OSC Manager is a Rust desktop application for managing multiple VRChat OSC p
 ## Build & Development Commands
 
 ```bash
-# Build (requires system libs on Linux: libdbus-1-dev libssl-dev libxdo-dev)
+# Build (requires system libs on Linux: libdbus-1-dev libxdo-dev)
 cargo build
 
 # Run
