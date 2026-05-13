@@ -52,7 +52,9 @@ fn main() {
     }
 
     if env::var_os("CARGO_CFG_TARGET_OS").unwrap() == "windows" {
-        embed_resource::compile("assets/icons.rc", embed_resource::NONE);
+        embed_resource::compile("assets/icons.rc", embed_resource::NONE)
+            .manifest_optional()
+            .unwrap();
     }
 
     println!("cargo:rerun-if-changed=assets/icons.rc");
