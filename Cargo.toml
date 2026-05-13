@@ -35,7 +35,7 @@ open = "5.3.0"
 indoc = "2.0.5"
 
 [build-dependencies]
-image = "0.24.9"
+image = "0.25.10"
 embed-resource = "3.0.9"
 slint-build = "1.8.0"
 
