@@ -22,7 +22,6 @@ impl LinuxPlatform {
     }
 }
 
-#[async_trait::async_trait]
 impl Platform for LinuxPlatform {
     fn open_folder(&self, path: &Path) {
         let _ = Command::new("xdg-open").arg(path).spawn();

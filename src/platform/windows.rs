@@ -8,7 +8,6 @@ use winreg::RegKey;
 
 pub struct WindowsPlatform;
 
-#[async_trait::async_trait]
 impl Platform for WindowsPlatform {
     fn open_folder(&self, path: &Path) {
         let _ = Command::new("explorer").arg(path).spawn();

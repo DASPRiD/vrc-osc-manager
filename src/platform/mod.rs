@@ -5,7 +5,6 @@ mod windows;
 
 use std::path::Path;
 
-#[async_trait::async_trait]
 pub trait Platform {
     fn open_folder(&self, path: &Path);
 
