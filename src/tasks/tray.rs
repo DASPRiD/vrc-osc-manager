@@ -1,5 +1,4 @@
 use crate::tasks::orchestrate::AppEvent;
-use async_trait::async_trait;
 use tokio::sync::mpsc;
 use tokio_graceful_shutdown::errors::CancelledByShutdown;
 use tokio_graceful_shutdown::{FutureExt, IntoSubsystem, SubsystemHandle};
@@ -129,10 +128,9 @@ impl TrayTask {
     }
 }
 
-#[async_trait]
 impl IntoSubsystem<anyhow::Error> for TrayTask {
-    async fn run(mut self, subsys: SubsystemHandle) -> anyhow::Result<()> {
-        match self.main_loop().cancel_on_shutdown(&subsys).await {
+    async fn run(mut self, subsys: &mut SubsystemHandle) -> anyhow::Result<()> {
+        match self.main_loop().cancel_on_shutdown(subsys).await {
             Ok(Ok(())) => {}
             Ok(Err(error)) => return Err(error),
             Err(CancelledByShutdown) => {}

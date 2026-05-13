@@ -321,10 +321,9 @@ impl ContinuousShockSender {
     }
 }
 
-#[async_trait]
 impl IntoSubsystem<Infallible> for ContinuousShockSender {
-    async fn run(mut self, subsys: SubsystemHandle) -> Result<(), Infallible> {
-        let _ = self.main_loop().cancel_on_shutdown(&subsys).await;
+    async fn run(self, subsys: &mut SubsystemHandle) -> Result<(), Infallible> {
+        let _ = self.main_loop().cancel_on_shutdown(subsys).await;
         Ok(())
     }
 }
@@ -393,10 +392,9 @@ impl IntensityModifier {
     }
 }
 
-#[async_trait]
 impl IntoSubsystem<Infallible> for IntensityModifier {
-    async fn run(mut self, subsys: SubsystemHandle) -> Result<(), Infallible> {
-        let _ = self.main_loop().cancel_on_shutdown(&subsys).await;
+    async fn run(self, subsys: &mut SubsystemHandle) -> Result<(), Infallible> {
+        let _ = self.main_loop().cancel_on_shutdown(subsys).await;
         Ok(())
     }
 }
@@ -452,10 +450,9 @@ impl ActivityMonitor {
     }
 }
 
-#[async_trait]
 impl IntoSubsystem<Infallible> for ActivityMonitor {
-    async fn run(mut self, subsys: SubsystemHandle) -> Result<(), Infallible> {
-        let _ = self.main_loop().cancel_on_shutdown(&subsys).await;
+    async fn run(mut self, subsys: &mut SubsystemHandle) -> Result<(), Infallible> {
+        let _ = self.main_loop().cancel_on_shutdown(subsys).await;
         Ok(())
     }
 }
@@ -562,7 +559,9 @@ impl PiShock {
 
         subsys.start(SubsystemBuilder::new("ActivityMonitor", {
             let osc_tx = osc_tx.clone();
-            move |s| ActivityMonitor::new(activity_rx, osc_tx).run(s)
+            async move |s: &mut SubsystemHandle| {
+                ActivityMonitor::new(activity_rx, osc_tx).run(s).await
+            }
         }));
 
         let config = self.core_config.read().await.clone();
@@ -759,9 +758,10 @@ impl PiShock {
             let cancellation_token = cancellation_token.clone();
             let session_config = self.session_config.clone();
 
-            move |s| {
+            async move |s: &mut SubsystemHandle| {
                 IntensityModifier::new(base, osc_tx.clone(), session_config, cancellation_token)
                     .run(s)
+                    .await
             }
         }));
 
@@ -793,7 +793,7 @@ impl PiShock {
                     let cancellation_token = cancellation_token.clone();
                     let activity_tx = activity_tx.clone();
 
-                    move |s| {
+                    async move |s: &mut SubsystemHandle| {
                         ContinuousShockSender::new(
                             client,
                             api_key,
@@ -804,6 +804,7 @@ impl PiShock {
                             activity_tx,
                         )
                         .run(s)
+                        .await
                     }
                 }));
 

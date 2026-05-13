@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use log::{error, warn};
 use tokio::sync::mpsc;
 use tokio_graceful_shutdown::errors::CancelledByShutdown;
@@ -67,18 +66,19 @@ impl PluginManagerTask {
         channel_manager: Arc<ChannelManager>,
         subsys: &SubsystemHandle,
     ) -> Option<NestedSubsystem<Box<dyn Error + Send + Sync>>> {
-        Some(
-            subsys.start(SubsystemBuilder::new(plugin_id, move |subsys| async move {
+        Some(subsys.start(SubsystemBuilder::new(
+            plugin_id,
+            async move |subsys: &mut SubsystemHandle| {
                 match plugin
-                    .run(&subsys, channel_manager)
-                    .cancel_on_shutdown(&subsys)
+                    .run(subsys, channel_manager)
+                    .cancel_on_shutdown(subsys)
                     .await
                 {
                     Ok(Ok(())) | Err(CancelledByShutdown) => Ok(()),
                     Ok(err) => err,
                 }
-            })),
-        )
+            },
+        )))
     }
 
     async fn main_loop(&mut self, subsys: &SubsystemHandle) -> anyhow::Result<()> {
@@ -183,10 +183,9 @@ impl PluginManagerTask {
     }
 }
 
-#[async_trait]
 impl IntoSubsystem<anyhow::Error> for PluginManagerTask {
-    async fn run(mut self, subsys: SubsystemHandle) -> anyhow::Result<()> {
-        match self.main_loop(&subsys).cancel_on_shutdown(&subsys).await {
+    async fn run(mut self, subsys: &mut SubsystemHandle) -> anyhow::Result<()> {
+        match self.main_loop(subsys).cancel_on_shutdown(subsys).await {
             Ok(Ok(())) => {}
             Ok(Err(error)) => return Err(error),
             Err(CancelledByShutdown) => {}

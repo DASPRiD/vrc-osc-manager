@@ -1,7 +1,6 @@
 use std::future::IntoFuture;
 use std::net::SocketAddr;
 
-use async_trait::async_trait;
 use axum::serve;
 use tokio::net::TcpListener;
 use tokio_graceful_shutdown::errors::CancelledByShutdown;
@@ -21,16 +20,15 @@ impl OscQueryTask {
     }
 }
 
-#[async_trait]
 impl IntoSubsystem<anyhow::Error> for OscQueryTask {
-    async fn run(self, subsys: SubsystemHandle) -> anyhow::Result<()> {
+    async fn run(self, subsys: &mut SubsystemHandle) -> anyhow::Result<()> {
         let addr = SocketAddr::from(([127, 0, 0, 1], self.port));
         let listener = TcpListener::bind(addr).await?;
         let service = Shared::new(self.service);
 
         match serve(listener, service)
             .into_future()
-            .cancel_on_shutdown(&subsys)
+            .cancel_on_shutdown(subsys)
             .await
         {
             Ok(Ok(())) => {}

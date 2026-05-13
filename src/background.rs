@@ -25,7 +25,7 @@ use std::time::Duration;
 use tokio::runtime::Runtime;
 use tokio::sync::{broadcast, mpsc};
 use tokio::task::JoinHandle;
-use tokio_graceful_shutdown::{IntoSubsystem, SubsystemBuilder, Toplevel};
+use tokio_graceful_shutdown::{IntoSubsystem, SubsystemBuilder, SubsystemHandle, Toplevel};
 
 fn get_available_tcp_port() -> anyhow::Result<u16> {
     let socket = TcpListener::bind("127.0.0.1:0")?;
@@ -133,7 +133,7 @@ fn start_runtime(params: RuntimeParams) -> anyhow::Result<(Runtime, JoinHandle<(
             channel_manager,
         );
 
-        let result = Toplevel::new(|s| async move {
+        let result = Toplevel::new(async |s: &mut SubsystemHandle| {
             s.start(SubsystemBuilder::new(
                 "Orchestrate",
                 orchestrate_task.into_subsystem(),

@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use log::error;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -98,10 +97,9 @@ impl ConfigWriterTask {
     }
 }
 
-#[async_trait]
 impl IntoSubsystem<anyhow::Error> for ConfigWriterTask {
-    async fn run(mut self, subsys: SubsystemHandle) -> anyhow::Result<()> {
-        match self.main_loop().cancel_on_shutdown(&subsys).await {
+    async fn run(mut self, subsys: &mut SubsystemHandle) -> anyhow::Result<()> {
+        match self.main_loop().cancel_on_shutdown(subsys).await {
             Ok(Ok(())) => {}
             Ok(Err(error)) => return Err(error),
             Err(CancelledByShutdown) => {

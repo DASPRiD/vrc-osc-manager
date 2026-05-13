@@ -1,5 +1,4 @@
 use crate::tasks::orchestrate::AppEvent;
-use async_trait::async_trait;
 use log::debug;
 use std::time::Duration;
 use sysinfo::{ProcessRefreshKind, RefreshKind, System};
@@ -48,10 +47,9 @@ impl VrchatMonitorTask {
     }
 }
 
-#[async_trait]
 impl IntoSubsystem<anyhow::Error> for VrchatMonitorTask {
-    async fn run(self, subsys: SubsystemHandle) -> anyhow::Result<()> {
-        match self.main_loop().cancel_on_shutdown(&subsys).await {
+    async fn run(self, subsys: &mut SubsystemHandle) -> anyhow::Result<()> {
+        match self.main_loop().cancel_on_shutdown(subsys).await {
             Ok(Ok(())) => {}
             Ok(Err(error)) => return Err(error),
             Err(CancelledByShutdown) => {}

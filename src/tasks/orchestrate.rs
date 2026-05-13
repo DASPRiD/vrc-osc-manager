@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use slint::{ComponentHandle, Weak};
 use std::path::PathBuf;
 use tokio::select;
@@ -165,10 +164,9 @@ impl OrchestrateTask {
     }
 }
 
-#[async_trait]
 impl IntoSubsystem<anyhow::Error> for OrchestrateTask {
-    async fn run(mut self, subsys: SubsystemHandle) -> anyhow::Result<()> {
-        match self.main_loop(&subsys).cancel_on_shutdown(&subsys).await {
+    async fn run(mut self, subsys: &mut SubsystemHandle) -> anyhow::Result<()> {
+        match self.main_loop(subsys).cancel_on_shutdown(subsys).await {
             Ok(Ok(())) => {}
             Ok(Err(error)) => return Err(error),
             Err(CancelledByShutdown) => {}
