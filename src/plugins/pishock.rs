@@ -687,20 +687,18 @@ impl PiShock {
                         .await;
                 }
             }
-            ("/avatar/parameters/PS_QuickShock", &[OscType::Float(value)]) => {
-                if value >= 0. {
-                    let state = self.session_config.read().await;
+            ("/avatar/parameters/PS_QuickShock", &[OscType::Float(value)]) if value >= 0. => {
+                let state = self.session_config.read().await;
 
-                    send_shocks(
-                        &api.client,
-                        &api.api_key,
-                        &api.shocker_ids,
-                        value.clamp(0., state.intensity_cap),
-                        1,
-                        activity_tx,
-                    )
-                    .await;
-                }
+                send_shocks(
+                    &api.client,
+                    &api.api_key,
+                    &api.shocker_ids,
+                    value.clamp(0., state.intensity_cap),
+                    1,
+                    activity_tx,
+                )
+                .await;
             }
             ("/avatar/change", &[OscType::String(_)]) => {
                 self.send_state(osc_tx).await;

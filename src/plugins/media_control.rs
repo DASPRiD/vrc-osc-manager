@@ -39,25 +39,17 @@ impl Plugin for MediaControl {
         loop {
             match rx.recv().await {
                 Ok(message) => match message.as_tuple() {
-                    ("/avatar/parameters/MC_PrevTrack", &[OscType::Bool(value)]) => {
-                        if value {
-                            enigo.key(Key::MediaPrevTrack, Click)?;
-                        }
+                    ("/avatar/parameters/MC_PrevTrack", &[OscType::Bool(value)]) if value => {
+                        enigo.key(Key::MediaPrevTrack, Click)?;
                     }
-                    ("/avatar/parameters/MC_NextTrack", &[OscType::Bool(value)]) => {
-                        if value {
-                            enigo.key(Key::MediaNextTrack, Click)?;
-                        }
+                    ("/avatar/parameters/MC_NextTrack", &[OscType::Bool(value)]) if value => {
+                        enigo.key(Key::MediaNextTrack, Click)?;
                     }
-                    ("/avatar/parameters/MC_PlayPause", &[OscType::Bool(value)]) => {
-                        if value {
-                            enigo.key(Key::MediaPlayPause, Click)?;
-                        }
+                    ("/avatar/parameters/MC_PlayPause", &[OscType::Bool(value)]) if value => {
+                        enigo.key(Key::MediaPlayPause, Click)?;
                     }
-                    ("/avatar/parameters/MC_Stop", &[OscType::Bool(value)]) => {
-                        if value {
-                            enigo.key(Key::MediaStop, Click)?;
-                        }
+                    ("/avatar/parameters/MC_Stop", &[OscType::Bool(value)]) if value => {
+                        enigo.key(Key::MediaStop, Click)?;
                     }
                     _ => {}
                 },
