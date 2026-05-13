@@ -105,8 +105,8 @@ fn start_runtime(params: RuntimeParams) -> anyhow::Result<(Runtime, JoinHandle<(
         let (tray_property_tx, tray_property_rx) = mpsc::channel(1);
 
         let dark_mode = match dark_light::detect() {
-            dark_light::Mode::Dark | dark_light::Mode::Default => true,
-            dark_light::Mode::Light => false,
+            Ok(dark_light::Mode::Dark | dark_light::Mode::Unspecified) | Err(_) => true,
+            Ok(dark_light::Mode::Light) => false,
         };
 
         let channel_manager = ChannelManager::new(osc_receiver_tx.clone(), osc_sender_tx);

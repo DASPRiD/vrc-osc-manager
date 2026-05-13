@@ -17,8 +17,8 @@ impl DarkLight {
             DarkLight::Dark => true,
             DarkLight::Light => false,
             DarkLight::Default => match dark_light::detect() {
-                dark_light::Mode::Dark | dark_light::Mode::Default => true,
-                dark_light::Mode::Light => false,
+                Ok(dark_light::Mode::Dark | dark_light::Mode::Unspecified) | Err(_) => true,
+                Ok(dark_light::Mode::Light) => false,
             },
         }
     }

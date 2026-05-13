@@ -29,7 +29,7 @@ slint = { version = "1.8.0" }
 axum = "0.7.7"
 tower = "0.5.1"
 async-trait = "0.1.83"
-dark-light = "1.1.1"
+dark-light = "2.0.0"
 flexi_logger = "0.31.8"
 open = "5.3.0"
 indoc = "2.0.5"
