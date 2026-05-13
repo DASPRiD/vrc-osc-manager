@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: sudo apt-get install libdbus-1-dev libxdo-dev
+      - run: sudo apt-get install libdbus-1-dev
       - run: cargo check
 
   fmt:
@@ -29,7 +29,7 @@ jobs:
         with:
           components: rustfmt
       - uses: Swatinem/rust-cache@v2
-      - run: sudo apt-get install libdbus-1-dev libxdo-dev
+      - run: sudo apt-get install libdbus-1-dev
       - run: cargo fmt --all -- --check
 
   clippy:
@@ -41,7 +41,7 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
-      - run: sudo apt-get install libdbus-1-dev libxdo-dev
+      - run: sudo apt-get install libdbus-1-dev
       - run: cargo clippy -- -D warnings
 
   check-release:
@@ -87,7 +87,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - run: sudo apt-get install libdbus-1-dev libxdo-dev
+      - run: sudo apt-get install libdbus-1-dev
 
       - name: Update version
         run: |
