@@ -44,4 +44,4 @@ tray-item = { version = "0.10.0", features = ["ksni"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 tray-item = { version = "0.10.0" }
-winreg = "0.52.0"
+winreg = "0.56.0"
