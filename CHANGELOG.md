@@ -1,3 +1,15 @@
+# [3.2.0](https://github.com/DASPRiD/vrc-osc-manager/compare/v3.1.0...v3.2.0) (2026-05-14)
+
+
+### Bug Fixes
+
+* switch reqwest to rustls and drop libssl dependency ([0665a03](https://github.com/DASPRiD/vrc-osc-manager/commit/0665a032089833dce333eb37a7b7099d2e39cad7))
+
+
+### Features
+
+* notify users when a new release is available ([aa43678](https://github.com/DASPRiD/vrc-osc-manager/commit/aa43678b99272ae7365ab760fc475e3a11ef5885))
+
 # [3.1.0](https://github.com/DASPRiD/vrc-osc-manager/compare/v3.0.2...v3.1.0) (2026-03-24)
 
 
