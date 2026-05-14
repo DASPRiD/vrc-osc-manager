@@ -1,5 +1,6 @@
 use crate::tasks::orchestrate::AppEvent;
 use log::debug;
+use std::ffi::OsStr;
 use std::time::Duration;
 use sysinfo::{ProcessRefreshKind, RefreshKind, System};
 use tokio::sync::mpsc;
@@ -19,13 +20,13 @@ impl VrchatMonitorTask {
     async fn main_loop(&self) -> anyhow::Result<()> {
         let mut is_running = false;
         let mut sys = System::new();
-        let refresh_kind = RefreshKind::new().with_processes(ProcessRefreshKind::new());
+        let refresh_kind = RefreshKind::nothing().with_processes(ProcessRefreshKind::nothing());
 
         loop {
             debug!("Checking if VRChat is running");
             sys.refresh_specifics(refresh_kind);
 
-            let process_running = sys.processes_by_name("VRChat").next().is_some();
+            let process_running = sys.processes_by_name(OsStr::new("VRChat")).next().is_some();
 
             if process_running != is_running {
                 is_running = process_running;
