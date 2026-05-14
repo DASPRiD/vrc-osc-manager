@@ -72,11 +72,16 @@ jobs:
   build:
     needs: [ check-release ]
     if: needs.check-release.outputs.new_release_published == 'true'
-    runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        target: [ linux-x64, windows-x64 ]
+        include:
+          - target: linux-x64
+            runner: ubuntu-22.04
+          - target: windows-x64
+            runner: ubuntu-latest
+
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - name: Checkout
@@ -87,8 +92,6 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - run: sudo apt-get update && sudo apt-get install libdbus-1-dev libfontconfig1-dev
-
       - name: Update version
         run: |
           sed -i '/\[package\]/,/^version = "[^"]*"$/ s/^version = "[^"]*"$/version = "'"${{ needs.check-release.outputs.new_release_version }}"'"/' Cargo.toml
@@ -97,13 +100,14 @@ jobs:
 
       - name: Build Binary
         run: |
-          cargo install cross --git https://github.com/rust-embedded/cross
-          
           if [ "${{ matrix.target }}" == "linux-x64" ]; then
-            cross build --release --target x86_64-unknown-linux-gnu
+            sudo apt-get update
+            sudo apt-get install --assume-yes libdbus-1-dev libfontconfig1-dev
+            cargo build --release --target x86_64-unknown-linux-gnu
           else
+            cargo install cross --git https://github.com/cross-rs/cross
             cross build --release --target x86_64-pc-windows-gnu
-            sudo apt-get install osslsigncode
+            sudo apt-get install --assume-yes osslsigncode
             echo "${{ secrets.WIN_SIGN_KEY }}" | base64 -d > code_sign.key.pem
             echo "${{ secrets.WIN_SIGN_CERT }}" | base64 -d > code_sign.cert.pem
             mkdir ./target/x86_64-pc-windows-gnu/signed
