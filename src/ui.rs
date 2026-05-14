@@ -3,7 +3,7 @@ use crate::platform::{get_platform, Platform};
 use crate::plugins::Plugin;
 use crate::tasks::orchestrate::UiEvent;
 use crate::utils::config::ConfigHandle;
-use crate::{AppWindow, PluginItem, PluginItems, Settings};
+use crate::{AppWindow, PluginItem, PluginItems, Settings, UpdateNotice};
 use log::error;
 use slint::{ComponentHandle, Model, ModelRc, VecModel};
 use std::collections::{HashMap, HashSet};
@@ -43,6 +43,10 @@ pub fn run_ui(
         let _ = open::that(<&str as Into<PathBuf>>::into(url.as_str()));
     });
 
+    app_window.global::<UpdateNotice>().on_open_url(|url| {
+        let _ = open::that(<&str as Into<PathBuf>>::into(url.as_str()));
+    });
+
     app_window.global::<PluginItems>().on_open_settings({
         let app_window = app_window.as_weak();
 
@@ -68,6 +72,7 @@ pub fn run_ui(
     });
 
     settings.set_auto_start(get_platform().has_auto_start());
+    settings.set_check_for_updates(config.blocking_read().check_for_updates);
 
     settings.on_toggle_tray_icons({
         let ui_event_tx = ui_event_tx.clone();
@@ -92,6 +97,16 @@ pub fn run_ui(
         move |enabled| {
             ui_event_tx
                 .blocking_send(UiEvent::AutoStartToggle(enabled))
+                .unwrap();
+        }
+    });
+
+    settings.on_toggle_check_for_updates({
+        let ui_event_tx = ui_event_tx.clone();
+
+        move |enabled| {
+            ui_event_tx
+                .blocking_send(UiEvent::UpdateCheckToggle(enabled))
                 .unwrap();
         }
     });

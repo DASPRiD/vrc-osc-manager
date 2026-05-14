@@ -9,6 +9,7 @@ use crate::tasks::osc_receiver::OscReceiverTask;
 use crate::tasks::osc_sender::OscSenderTask;
 use crate::tasks::plugin_manager::PluginManagerTask;
 use crate::tasks::tray::TrayTask;
+use crate::tasks::update_checker::UpdateCheckerTask;
 use crate::tasks::vrchat_monitor::VrchatMonitorTask;
 use crate::utils::config::ConfigHandle;
 use crate::AppWindow;
@@ -128,10 +129,18 @@ fn start_runtime(params: RuntimeParams) -> anyhow::Result<(Runtime, JoinHandle<(
         let osc_sender_task = OscSenderTask::new(osc_target_port, osc_sender_rx);
         let plugin_manager_task = PluginManagerTask::new(
             plugin_manager_rx,
-            params.config,
+            params.config.clone(),
             params.plugins,
             channel_manager,
         );
+        let update_checker_task =
+            match UpdateCheckerTask::new(params.app_event_tx.clone(), params.config) {
+                Ok(task) => Some(task),
+                Err(error) => {
+                    error!("Failed to initialize update checker: {}", error);
+                    None
+                }
+            };
 
         let result = Toplevel::new(async |s: &mut SubsystemHandle| {
             s.start(SubsystemBuilder::new(
@@ -163,6 +172,13 @@ fn start_runtime(params: RuntimeParams) -> anyhow::Result<(Runtime, JoinHandle<(
                 "PluginManager",
                 plugin_manager_task.into_subsystem(),
             ));
+
+            if let Some(task) = update_checker_task {
+                s.start(SubsystemBuilder::new(
+                    "UpdateChecker",
+                    task.into_subsystem(),
+                ));
+            }
         })
         .handle_shutdown_requests(Duration::from_millis(1000))
         .await;

@@ -9,6 +9,47 @@ export global Router {
     in property <string> settings-page: "";
 }
 
+export global UpdateNotice {
+    in property <bool> available: false;
+    in property <string> version: "";
+    in property <string> url: "";
+
+    callback open-url(string);
+}
+
+component UpdateBanner inherits Rectangle {
+    background: #2a6cdf;
+    height: 40px;
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 8px;
+        spacing: 12px;
+
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+
+            Text {
+                text: "Update available: v" + UpdateNotice.version;
+                color: white;
+                font-weight: 700;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+
+            Button {
+                text: "View release";
+                clicked => {
+                    UpdateNotice.open-url(UpdateNotice.url);
+                }
+            }
+        }
+    }
+}
+
 export component AppWindow inherits Window {
     title: "VRC OSC Manager";
     preferred-width: 800px;
@@ -26,6 +67,8 @@ export component AppWindow inherits Window {
 
         VerticalLayout {
             alignment: stretch;
+
+            if UpdateNotice.available: UpdateBanner { }
 
             tab-bar := TabBar {
                 tabs: ["Plugins", "Settings"];

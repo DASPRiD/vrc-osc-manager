@@ -10,19 +10,21 @@ use crate::platform::{get_platform, Platform};
 use crate::tasks::plugin_manager::Command;
 use crate::tasks::tray::TrayProperty;
 use crate::utils::config::ConfigHandle;
-use crate::AppWindow;
+use crate::{AppWindow, UpdateNotice};
 
 pub enum AppEvent {
     VrchatStarted,
     VrchatStopped,
     AppWindowRequested,
     ShutdownRequested,
+    UpdateAvailable { version: String, url: String },
 }
 
 pub enum UiEvent {
     PluginToggle(String, bool),
     TrayIconsToggle(DarkLight),
     AutoStartToggle(bool),
+    UpdateCheckToggle(bool),
     OpenLogsFolder,
     StartPlugins,
 }
@@ -115,6 +117,17 @@ impl OrchestrateTask {
                 let _ = slint::quit_event_loop();
                 subsys.request_shutdown();
             }
+            AppEvent::UpdateAvailable { version, url } => {
+                self.app_window
+                    .lock()
+                    .await
+                    .upgrade_in_event_loop(move |handle| {
+                        let notice = handle.global::<UpdateNotice>();
+                        notice.set_version(version.into());
+                        notice.set_url(url.into());
+                        notice.set_available(true);
+                    })?;
+            }
         }
 
         Ok(())
@@ -148,6 +161,13 @@ impl OrchestrateTask {
                 } else {
                     get_platform().remove_auto_start().await?;
                 }
+            }
+            UiEvent::UpdateCheckToggle(enabled) => {
+                self.config
+                    .update(|config| {
+                        config.check_for_updates = enabled;
+                    })
+                    .await?;
             }
             UiEvent::OpenLogsFolder => {
                 get_platform().open_folder(&self.logs_dir);

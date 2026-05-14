@@ -19,6 +19,7 @@ searchlight = "0.3.2"
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.116"
 serde_repr = "0.1.19"
+semver = "1.0.23"
 sysinfo = "0.39.1"
 tokio = { version = "1.37.0", features = ["full"] }
 tokio-graceful-shutdown = "0.19.0"
@@ -33,6 +34,7 @@ dark-light = "2.0.0"
 flexi_logger = "0.31.8"
 open = "5.3.0"
 indoc = "2.0.5"
+notify-rust = "4.11.0"
 
 [build-dependencies]
 image = "0.25.10"

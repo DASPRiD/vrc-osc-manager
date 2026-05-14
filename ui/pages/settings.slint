@@ -4,9 +4,11 @@ import { FormGroup } from "../widgets/form_group.slint";
 export global Settings {
     in-out property <string> tray-icons;
     in-out property <bool> auto-start;
+    in-out property <bool> check-for-updates;
 
     callback toggle-tray-icons(string);
     callback toggle-auto-start(bool);
+    callback toggle-check-for-updates(bool);
     callback open-logs-folder();
     callback start-plugins();
 }
@@ -34,6 +36,14 @@ export component SettingsPage inherits ScrollView {
             checked <=> Settings.auto-start;
             toggled => {
                 Settings.toggle-auto-start(self.checked)
+            }
+        }
+
+        Switch {
+            text: "Check for updates";
+            checked <=> Settings.check-for-updates;
+            toggled => {
+                Settings.toggle-check-for-updates(self.checked)
             }
         }
 

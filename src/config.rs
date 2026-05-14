@@ -36,10 +36,22 @@ impl Default for OscConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct RootConfig {
     pub osc: OscConfig,
     pub dark_light: DarkLight,
     pub enabled_plugins: HashSet<String>,
+    pub check_for_updates: bool,
+}
+
+impl Default for RootConfig {
+    fn default() -> Self {
+        Self {
+            osc: OscConfig::default(),
+            dark_light: DarkLight::default(),
+            enabled_plugins: HashSet::new(),
+            check_for_updates: true,
+        }
+    }
 }
