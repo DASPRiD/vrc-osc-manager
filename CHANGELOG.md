@@ -1,3 +1,10 @@
+## [3.2.1](https://github.com/DASPRiD/vrc-osc-manager/compare/v3.2.0...v3.2.1) (2026-05-15)
+
+
+### Bug Fixes
+
+* retry mDNS broadcaster startup until network is ready ([dc62595](https://github.com/DASPRiD/vrc-osc-manager/commit/dc62595ae05a5a5ba01b776c798222afb6e602f4))
+
 # [3.2.0](https://github.com/DASPRiD/vrc-osc-manager/compare/v3.1.0...v3.2.0) (2026-05-14)
 
 
