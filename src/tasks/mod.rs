@@ -1,3 +1,4 @@
+pub mod broadcaster;
 pub mod config_writer;
 pub mod orchestrate;
 pub mod osc_query;
