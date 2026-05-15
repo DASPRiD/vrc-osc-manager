@@ -27,8 +27,9 @@ cargo fmt --all -- --check
 # Format fix
 cargo fmt --all
 
-# Cross-compile for Windows from Linux
-cross build --target x86_64-pc-windows-gnu --release
+# Cross-compile for Windows from Linux (requires gcc-mingw-w64-x86-64)
+rustup target add x86_64-pc-windows-gnu
+cargo build --target x86_64-pc-windows-gnu --release
 ```
 
 There are no tests in this project.

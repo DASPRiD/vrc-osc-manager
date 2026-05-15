@@ -77,11 +77,11 @@ jobs:
       matrix:
         include:
           - target: linux-x64
-            runner: ubuntu-22.04
+            rust_target: x86_64-unknown-linux-gnu
           - target: windows-x64
-            runner: ubuntu-latest
+            rust_target: x86_64-pc-windows-gnu
 
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout
@@ -89,8 +89,12 @@ jobs:
 
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
 
       - name: Update version
         run: |
@@ -103,22 +107,22 @@ jobs:
           if [ "${{ matrix.target }}" == "linux-x64" ]; then
             sudo apt-get update
             sudo apt-get install --assume-yes libdbus-1-dev libfontconfig1-dev
-            cargo build --release --target x86_64-unknown-linux-gnu
+            cargo build --release --target ${{ matrix.rust_target }}
           else
-            cargo install cross --git https://github.com/cross-rs/cross
-            cross build --release --target x86_64-pc-windows-gnu
-            sudo apt-get install --assume-yes osslsigncode
+            sudo apt-get update
+            sudo apt-get install --assume-yes gcc-mingw-w64-x86-64 osslsigncode
+            cargo build --release --target ${{ matrix.rust_target }}
             echo "${{ secrets.WIN_SIGN_KEY }}" | base64 -d > code_sign.key.pem
             echo "${{ secrets.WIN_SIGN_CERT }}" | base64 -d > code_sign.cert.pem
-            mkdir ./target/x86_64-pc-windows-gnu/signed
+            mkdir ./target/${{ matrix.rust_target }}/signed
             osslsigncode sign \
               -certs code_sign.cert.pem \
               -key code_sign.key.pem \
               -n "VRC OSC Manager" \
               -i https://github.com/DASPRiD/vrc-osc-manager/ \
               -t http://timestamp.sectigo.com \
-              -in ./target/x86_64-pc-windows-gnu/release/vrc-osc-manager.exe \
-              -out ./target/x86_64-pc-windows-gnu/signed/vrc-osc-manager.exe
+              -in ./target/${{ matrix.rust_target }}/release/vrc-osc-manager.exe \
+              -out ./target/${{ matrix.rust_target }}/signed/vrc-osc-manager.exe
           fi
         shell: bash
 

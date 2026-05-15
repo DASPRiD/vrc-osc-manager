@@ -9,10 +9,12 @@ This is an OSC manager for handling multiple VRChat OSC plugins at once.
 When compiling the application, it will include all plugins by default. You can opt into only including specific plugins
 by only enabling the features you want. For a full list of features, have a look at the `Cargo.toml` file.
 
-In order to cross-compile from Linux for Windows, run the following command:
+In order to cross-compile from Linux for Windows, install the mingw-w64 toolchain (e.g. `apt install
+gcc-mingw-w64-x86-64`), then run:
 
 ```bash
-cross build --target x86_64-pc-windows-gnu --release
+rustup target add x86_64-pc-windows-gnu
+cargo build --target x86_64-pc-windows-gnu --release
 ```
 
 ## Usage
