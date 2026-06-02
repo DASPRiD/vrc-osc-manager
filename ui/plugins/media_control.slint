@@ -1,0 +1,93 @@
+import { Button, ComboBox, HorizontalBox, VerticalBox } from "std-widgets.slint";
+import { Overlay } from "../widgets/overlay.slint";
+import { FormGroup } from "../widgets/form_group.slint";
+
+export global MediaControlSettings {
+    in-out property <[string]> player-labels;
+    in-out property <[string]> player-values;
+    in-out property <int> current-index;
+    in-out property <string> selected-value;
+    in-out property <bool> loading: true;
+    in-out property <bool> is-dirty: false;
+    in-out property <string> test-status: "";
+    in-out property <bool> test-running: false;
+
+    callback cancel();
+    callback apply();
+    callback okay();
+    callback test();
+}
+
+export component MediaControlSettingsOverlay inherits Overlay {
+    VerticalBox {
+        padding: 16px;
+
+        VerticalLayout {
+            alignment: start;
+            vertical-stretch: 1;
+            spacing: 8px;
+
+            FormGroup {
+                label: "Target Player";
+
+                ComboBox {
+                    width: 250px;
+                    enabled: !MediaControlSettings.loading;
+                    model: MediaControlSettings.player-labels;
+                    current-index <=> MediaControlSettings.current-index;
+                    selected => {
+                        MediaControlSettings.selected-value =
+                            MediaControlSettings.player-values[self.current-index];
+                        MediaControlSettings.is-dirty = true;
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: start;
+                padding-top: 8px;
+                padding-left: 100px;
+
+                Button {
+                    text: MediaControlSettings.test-running ? "Testing…" : "Test Play/Pause";
+                    enabled: !MediaControlSettings.loading && !MediaControlSettings.test-running;
+                    clicked => {
+                        MediaControlSettings.test()
+                    }
+                }
+
+                Text {
+                    text: MediaControlSettings.test-status;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        HorizontalBox {
+            padding: 0;
+
+            Button {
+                text: "Cancel";
+                clicked => {
+                    MediaControlSettings.cancel()
+                }
+            }
+
+            Button {
+                enabled: MediaControlSettings.is-dirty;
+                text: "Apply";
+                clicked => {
+                    MediaControlSettings.apply()
+                }
+            }
+
+            Button {
+                text: "Ok";
+                clicked => {
+                    MediaControlSettings.okay()
+                }
+            }
+        }
+    }
+}

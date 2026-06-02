@@ -6622,6 +6622,7 @@ dependencies = [
  "tower",
  "tray-item",
  "winreg 0.56.0",
+ "zbus",
 ]
 
 [[package]]

@@ -4,6 +4,7 @@ import { PluginsPage } from "pages/plugins.slint";
 import { SettingsPage } from "pages/settings.slint";
 import { Icons } from "widgets/styling.slint";
 import { PishockSettingsOverlay } from "plugins/pishock.slint";
+import { MediaControlSettingsOverlay } from "plugins/media_control.slint";
 
 export global Router {
     in property <string> settings-page: "";
@@ -64,6 +65,7 @@ export component AppWindow inherits Window {
         // Temporarily we have to handle settings pages here.
         // In the future we might be able to inject them from the plugins themselves.
         if Router.settings-page == "pishock": PishockSettingsOverlay { }
+        if Router.settings-page == "media_control": MediaControlSettingsOverlay { }
 
         VerticalLayout {
             alignment: stretch;
