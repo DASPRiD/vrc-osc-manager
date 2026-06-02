@@ -1,3 +1,10 @@
+# [3.3.0](https://github.com/DASPRiD/vrc-osc-manager/compare/v3.2.1...v3.3.0) (2026-06-02)
+
+
+### Features
+
+* **media-control:** drive players via MPRIS on Linux ([86523f7](https://github.com/DASPRiD/vrc-osc-manager/commit/86523f7ca9f3a68e07288316c96f199ab2740664))
+
 ## [3.2.1](https://github.com/DASPRiD/vrc-osc-manager/compare/v3.2.0...v3.2.1) (2026-05-15)
 
 
